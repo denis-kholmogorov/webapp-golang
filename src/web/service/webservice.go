@@ -9,7 +9,15 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
 )
+
+type Person struct {
+	tableName struct{} `pg:"public.person"`
+	Id        int      `json:"id" pg:"id"`
+	Age       int      `json:"age" pg:"age"`
+	FirstName string   `json:"firstName" pg:"first_name"`
+}
 
 type PersonService struct {
 	repository *pgx.Conn
@@ -22,7 +30,7 @@ func (s *PersonService) SetRepo(r *pgx.Conn) {
 func (s *PersonService) GetById(c *gin.Context) {
 	person := Person{}
 	id := c.Param("id")
-	err := pgxscan.Get(context.Background(), s.repository, &person, getQuery(person, id), id)
+	err := pgxscan.Get(context.Background(), s.repository, &person, createQuery(person, id), id)
 
 	if err != nil {
 		log.Printf(err.Error())
@@ -34,7 +42,7 @@ func (s *PersonService) GetById(c *gin.Context) {
 
 func (s *PersonService) GetAll(c *gin.Context) {
 	var persons []*Person
-	err := pgxscan.Select(context.Background(), s.repository, &persons, getQuery(Person{}))
+	err := pgxscan.Select(context.Background(), s.repository, &persons, createQuery(Person{}))
 	if err != nil {
 		log.Println("Rows not found")
 		c.JSON(http.StatusBadRequest, fmt.Sprintln("Rows not found"))
@@ -43,7 +51,28 @@ func (s *PersonService) GetAll(c *gin.Context) {
 	}
 }
 
-func getQuery(s interface{}, id ...interface{}) string {
+func (s *PersonService) Create(c *gin.Context) {
+	background := context.Background()
+	tx, err := s.repository.BeginTx(background, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		log.Panic(err)
+	}
+	var person Person
+	var id int
+	err = c.BindJSON(&person)
+	defer tx.Rollback(background)
+	err = s.repository.QueryRow(background, createInsert(person)).Scan(&id)
+	if err != nil {
+		log.Println(err)
+	}
+	err = tx.Commit(background)
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.JSON(http.StatusOK, id)
+}
+
+func createQuery(s interface{}, id ...interface{}) string {
 	query := ""
 	table := ""
 
@@ -72,6 +101,52 @@ func getQuery(s interface{}, id ...interface{}) string {
 
 	fmt.Println(query)
 	return query
+}
+
+func createInsert(s interface{}) string {
+	values := ""
+	table := ""
+	fields := ""
+	query := ""
+
+	val := reflect.ValueOf(s)
+	tags := reflect.TypeOf(s)
+	for i := 0; i < val.NumField(); i++ {
+
+		valueField := val.Field(i)
+		tag := tags.Field(i)
+
+		if _, ok := tag.Tag.Lookup("pg"); ok {
+			if tag.Name == "tableName" {
+				table = tag.Tag.Get("pg")
+			} else if tag.Name == "Id" {
+				log.Println("id" + tag.Tag.Get("pg"))
+			} else if i == val.NumField()-1 {
+				values += fieldToString(reflect.ValueOf(valueField.Interface()))
+				fields += tag.Tag.Get("pg")
+			} else {
+				values += fieldToString(reflect.ValueOf(valueField.Interface())) + ","
+				fields += tag.Tag.Get("pg") + ","
+			}
+		} else {
+			fmt.Println("(not specified)")
+		}
+	}
+
+	query = "INSERT INTO " + table + " (" + fields + ") values (" + values + ") returning id;"
+	fmt.Println(query)
+
+	return query
+}
+
+func fieldToString(val reflect.Value) string {
+	switch val.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.Itoa(int(val.Int()))
+	case reflect.String:
+		return "'" + val.String() + "'"
+	}
+	return ""
 }
 
 //func (s *PersonService)GetById(c *gin.Context)  {
@@ -174,14 +249,23 @@ func getQuery(s interface{}, id ...interface{}) string {
 //
 //func (s *PersonService) Delete(c *gin.Context) {
 //}
-
-type Person struct {
-	tableName struct{} `pg:"public.person"`
-	Id        int      `json:"id" pg:"id"`
-	Age       int      `json:"age" pg:"age"`
-	FirstName string   `json:"firstName" pg:"first_name"`
-}
-
-func NewModel(id int, age int, name string) *Person {
-	return &Person{Id: id, Age: age, FirstName: name}
-}
+//
+//rows := [][]interface{}{
+//{person.Age, person.FirstName},
+//}
+//defer tx.Rollback(background)
+//from, err := s.repository.CopyFrom(c, pgx.Identifier{"person"}, []string{"age", "first_name"}, pgx.CopyFromRows(rows))
+//if err != nil {
+//log.Println(err)
+//tx.Rollback(background)
+//} else {
+//log.Println(from)
+//tx.Commit(background)
+//c.JSON(http.StatusCreated, nil)
+//}
+//
+//batch := &pgx.Batch{}
+//batch.Queue("insert into ledger(description, amount) values($1, $2)", "q1", 1)
+//batch.Queue("insert into ledger(description, amount) values($1, $2)", "q2", 2)
+//br := s.repository.SendBatch(context.Background(), batch)
+//log.Println(br.QueryRow())
