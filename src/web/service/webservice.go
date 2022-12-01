@@ -30,7 +30,7 @@ func (s *PersonService) SetRepo(r *pgx.Conn) {
 func (s *PersonService) GetById(c *gin.Context) {
 	person := Person{}
 	id := c.Param("id")
-	err := pgxscan.Get(context.Background(), s.repository, &person, createQuery(person, id), id)
+	err := pgxscan.Get(context.Background(), s.repository, &person, createSelectQuery(person, id), id)
 
 	if err != nil {
 		log.Printf(err.Error())
@@ -42,7 +42,7 @@ func (s *PersonService) GetById(c *gin.Context) {
 
 func (s *PersonService) GetAll(c *gin.Context) {
 	var persons []*Person
-	err := pgxscan.Select(context.Background(), s.repository, &persons, createQuery(Person{}))
+	err := pgxscan.Select(context.Background(), s.repository, &persons, createSelectQuery(Person{}))
 	if err != nil {
 		log.Println("Rows not found")
 		c.JSON(http.StatusBadRequest, fmt.Sprintln("Rows not found"))
@@ -52,27 +52,117 @@ func (s *PersonService) GetAll(c *gin.Context) {
 }
 
 func (s *PersonService) Create(c *gin.Context) {
-	background := context.Background()
-	tx, err := s.repository.BeginTx(background, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	context := context.Background()
+	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		log.Panic(err)
 	}
 	var person Person
 	var id int
 	err = c.BindJSON(&person)
-	defer tx.Rollback(background)
-	err = s.repository.QueryRow(background, createInsert(person)).Scan(&id)
+	defer tx.Rollback(context)
+	err = s.repository.QueryRow(context, createInsertQuery(person)).Scan(&id)
 	if err != nil {
 		log.Println(err)
 	}
-	err = tx.Commit(background)
+	err = tx.Commit(context)
 	if err != nil {
 		log.Fatal(err)
 	}
 	c.JSON(http.StatusOK, id)
 }
 
-func createQuery(s interface{}, id ...interface{}) string {
+func (s *PersonService) Update(c *gin.Context) {
+	context := context.Background()
+	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		log.Panic(err)
+	}
+	var person Person
+	var id int
+	err = c.BindJSON(&person)
+	defer tx.Rollback(context)
+	err = s.repository.QueryRow(context, createUpdateQuery(person)).Scan(&id)
+	if err != nil {
+		log.Println(err)
+	}
+	err = tx.Commit(context)
+	if err != nil {
+		log.Println(err)
+	}
+	c.JSON(http.StatusOK, id)
+}
+
+func (s *PersonService) DeleteById(c *gin.Context) {
+	context := context.Background()
+	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		log.Panic(err)
+	}
+	defer tx.Rollback(context)
+	person := Person{}
+	id := c.Param("id")
+	err = s.repository.QueryRow(context, createDeleteQuery(person, id)).Scan()
+	if err != nil {
+		log.Println(err)
+	}
+	err = tx.Commit(context)
+	c.JSON(http.StatusOK, id)
+}
+
+func createDeleteQuery(s interface{}, id string) string {
+	tableName := ""
+
+	tags := reflect.TypeOf(s)
+
+	for i := 0; i < tags.NumField(); i++ {
+		tag := tags.Field(i)
+
+		if _, ok := tag.Tag.Lookup("pg"); ok {
+			if tag.Name == "tableName" {
+				tableName = tag.Tag.Get("pg")
+			}
+		}
+	}
+	query := "DELETE FROM " + tableName + " WHERE ID =" + id
+	return query
+}
+
+func createUpdateQuery(s interface{}) string {
+	table, fields, query, id := "", "", "", ""
+
+	val := reflect.ValueOf(s)
+	tags := reflect.TypeOf(s)
+	for i := 0; i < val.NumField(); i++ {
+
+		valueField := val.Field(i)
+		tag := tags.Field(i)
+
+		if _, ok := tag.Tag.Lookup("pg"); ok {
+			if tag.Name == "tableName" {
+				table = tag.Tag.Get("pg")
+			} else if tag.Name == "Id" {
+				id = fieldToString(reflect.ValueOf(valueField.Interface()))
+				if id == "" {
+					log.Fatal("Id not will be nill")
+				}
+			} else if i == val.NumField()-1 {
+				fields += tag.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(valueField.Interface()))
+			} else {
+				fields += tag.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(valueField.Interface())) + ","
+			}
+		} else {
+			fmt.Println("(not specified)")
+		}
+	}
+
+	query = "UPDATE " + table + " SET " + fields + " WHERE id=" + id + " returning id;"
+	fmt.Println(query)
+
+	return query
+}
+
+func createSelectQuery(s interface{}, id ...interface{}) string {
 	query := ""
 	table := ""
 
@@ -103,11 +193,8 @@ func createQuery(s interface{}, id ...interface{}) string {
 	return query
 }
 
-func createInsert(s interface{}) string {
-	values := ""
-	table := ""
-	fields := ""
-	query := ""
+func createInsertQuery(s interface{}) string {
+	query, fields, table, values := "", "", "", ""
 
 	val := reflect.ValueOf(s)
 	tags := reflect.TypeOf(s)
@@ -146,7 +233,7 @@ func fieldToString(val reflect.Value) string {
 	case reflect.String:
 		return "'" + val.String() + "'"
 	}
-	return ""
+	return "" //TODO добавить ошибку
 }
 
 //func (s *PersonService)GetById(c *gin.Context)  {
