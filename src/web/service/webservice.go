@@ -1,15 +1,13 @@
 package service
 
 import (
-	"context"
 	"fmt"
-	"github.com/georgysavva/scany/pgxscan"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx"
 	"log"
 	"net/http"
 	"reflect"
 	"strconv"
+	"web/repository"
 )
 
 type Person struct {
@@ -20,95 +18,115 @@ type Person struct {
 }
 
 type PersonService struct {
-	repository *pgx.Conn
+	//repository *pgx.Conn
+	repository *repository.DBConnection
 }
 
-func (s *PersonService) SetRepo(r *pgx.Conn) {
+func (s *PersonService) SetRepo(r *repository.DBConnection) {
 	s.repository = r
 }
 
-func (s *PersonService) GetById(c *gin.Context) {
-	person := Person{}
-	id := c.Param("id")
-	err := pgxscan.Get(context.Background(), s.repository, &person, createSelectQuery(person, id), id)
-
-	if err != nil {
-		log.Printf(err.Error())
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
-	} else {
-		c.JSON(http.StatusOK, person)
-	}
-}
-
-func (s *PersonService) GetAll(c *gin.Context) {
-	var persons []*Person
-	err := pgxscan.Select(context.Background(), s.repository, &persons, createSelectQuery(Person{}))
-	if err != nil {
-		log.Println("Rows not found")
-		c.JSON(http.StatusBadRequest, fmt.Sprintln("Rows not found"))
-	} else {
-		c.JSON(http.StatusOK, persons)
-	}
-}
+//func (s *PersonService) GetById(c *gin.Context) {
+//	person := Person{}
+//	id := c.Param("id")
+//	err := pgxscan.Get(context.Background(), s.repository, &person, createSelectQuery(person, id), id)
+//
+//	if err != nil {
+//		log.Printf(err.Error())
+//		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+//	} else {
+//		c.JSON(http.StatusOK, person)
+//	}
+//}
 
 func (s *PersonService) Create(c *gin.Context) {
-	context := context.Background()
-	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		log.Panic(err)
-	}
-	var person Person
-	var id int
-	err = c.BindJSON(&person)
-	defer tx.Rollback(context)
-	err = s.repository.QueryRow(context, createInsertQuery(person)).Scan(&id)
-	if err != nil {
-		log.Println(err)
-	}
-	err = tx.Commit(context)
-	if err != nil {
-		log.Fatal(err)
-	}
-	c.JSON(http.StatusOK, id)
-}
-
-func (s *PersonService) Update(c *gin.Context) {
-	context := context.Background()
-	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		log.Panic(err)
-	}
-	var person Person
-	var id int
-	err = c.BindJSON(&person)
-	defer tx.Rollback(context)
-	err = s.repository.QueryRow(context, createUpdateQuery(person)).Scan(&id)
-	if err != nil {
-		log.Println(err)
-	}
-	err = tx.Commit(context)
-	if err != nil {
-		log.Println(err)
-	}
-	c.JSON(http.StatusOK, id)
-}
-
-func (s *PersonService) DeleteById(c *gin.Context) {
-	context := context.Background()
-	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		log.Panic(err)
-	}
-	defer tx.Rollback(context)
 	person := Person{}
-	id := c.Param("id")
-	err = s.repository.QueryRow(context, createDeleteQuery(person, id)).Scan()
+	bindJson(c, &person)
+	log.Printf("Create new person %v", person)
+	id, err := s.repository.Create(person)
 	if err != nil {
-		log.Println(err)
+		log.Panic(c.AbortWithError(http.StatusBadRequest, err))
+	} else {
+		c.JSON(http.StatusCreated, &id)
 	}
-	err = tx.Commit(context)
-	c.JSON(http.StatusOK, id)
 }
+
+func bindJson(c *gin.Context, value any) {
+	err := c.BindJSON(value)
+	if err != nil {
+		fmt.Printf("Can't parse json from request %s", err.Error())
+	}
+}
+
+//func (s *PersonService) GetAll(c *gin.Context) {
+//	var persons []*Person
+//	err := pgxscan.Select(context.Background(), s.repository, &persons, createSelectQuery(Person{}))
+//	if err != nil {
+//		log.Println("Rows not found")
+//		c.JSON(http.StatusBadRequest, fmt.Sprintln("Rows not found"))
+//	} else {
+//		c.JSON(http.StatusOK, persons)
+//	}
+//}
+//
+//func (s *PersonService) Create(c *gin.Context) {
+//	context := context.Background()
+//	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+//	if err != nil {
+//		log.Panic(err)
+//	}
+//	var person Person
+//	var id int
+//	err = c.BindJSON(&person)
+//	defer tx.Rollback(context)
+//	err = s.repository.QueryRow(context, createInsertQuery(person)).Scan(&id)
+//	if err != nil {
+//		log.Println(err)
+//	}
+//	err = tx.Commit(context)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	c.JSON(http.StatusOK, id)
+//}
+//
+//func (s *PersonService) Update(c *gin.Context) {
+//	context := context.Background()
+//	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+//	if err != nil {
+//		log.Panic(err)
+//	}
+//	var person Person
+//	var id int
+//	err = c.BindJSON(&person)
+//	defer tx.Rollback(context)
+//	err = s.repository.QueryRow(context, createUpdateQuery(person)).Scan(&id)
+//	if err != nil {
+//		log.Println(err)
+//	}
+//	err = tx.Commit(context)
+//	if err != nil {
+//		log.Println(err)
+//	}
+//	c.JSON(http.StatusOK, id)
+//}
+//
+//func (s *PersonService) DeleteById(c *gin.Context) {
+//	context := context.Background()
+//	tx, err := s.repository.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+//	if err != nil {
+//		log.Panic(err)
+//	}
+//	defer tx.Rollback(context)
+//	person := Person{}
+//	id := c.Param("id")
+//	err = s.repository.QueryRow(context, createDeleteQuery(person, id)).Scan()
+//	if err != nil {
+//		log.Println(err)
+//	}
+//	err = tx.Commit(context)
+//	c.JSON(http.StatusOK, id)
+//}
 
 func createDeleteQuery(s interface{}, id string) string {
 	tableName := ""
