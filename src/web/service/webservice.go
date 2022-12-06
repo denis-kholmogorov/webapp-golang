@@ -45,6 +45,18 @@ func (s *PersonService) Create(c *gin.Context) {
 	log.Printf("Create new person %v", person)
 	id, err := s.repository.Create(person)
 	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusCreated, &id)
+	}
+}
+
+func (s *PersonService) Update(c *gin.Context) {
+	var person Person
+	bindJson(c, &person)
+	id, err := s.repository.Update(person)
+	if err != nil {
 		log.Panic(c.AbortWithError(http.StatusBadRequest, err))
 	} else {
 		c.JSON(http.StatusCreated, &id)

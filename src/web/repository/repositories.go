@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx"
@@ -8,6 +9,12 @@ import (
 	"reflect"
 	"strconv"
 )
+
+const INSERT = "INSERT INTO"
+const VALUES = "VALUES"
+const UPDATE = "UPDATE"
+const SET = "SET"
+const WHERE_ID = "WHERE id ="
 
 type DBConnection struct {
 	connection *pgx.Conn
@@ -17,31 +24,106 @@ func (db *DBConnection) SetConnection(connection *pgx.Conn) {
 	db.connection = connection
 }
 
-func CreateConnect() (*DBConnection, error) {
-	context := context.Background()
-	conn, err := pgx.Connect(context, "postgres://postgres:postgres@localhost:5432/postgres")
+func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
+	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	defer tx.Rollback(context.Background())
+	id := getTypeId(domain)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close(context)
-	db := DBConnection{conn}
-	return &db, nil
-}
-
-func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
-	context := context.Background()
-	tx, err := db.connection.BeginTx(context, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	defer tx.Rollback(context)
-	id := getTypeId(domain)
-	err = db.connection.QueryRow(context, createInsertQuery(domain)).Scan(&id)
+	err = db.connection.QueryRow(context.Background(), createInsertQuery(domain)).Scan(&id)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error execute query insert %s", err)
 	}
-	err = tx.Commit(context)
+	err = tx.Commit(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error commit transaction insert %s", err)
 	}
 	return &id, err
+}
+
+func (db *DBConnection) Update(domain interface{}) (interface{}, error) {
+	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	defer tx.Rollback(context.Background())
+	id := getTypeId(domain)
+	err = db.connection.QueryRow(context.Background(), createUpdateQuery(domain)).Scan(&id)
+	if err != nil {
+		log.Printf("Error execute query update %s", err)
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		log.Printf("Error commit transaction update %s", err)
+	}
+	return &id, err
+}
+
+func createInsertQuery(s interface{}) string {
+	query, table := "", ""
+	queryField := bytes.Buffer{}
+	queryValues := bytes.Buffer{}
+	values, tags := reflect.ValueOf(s), reflect.TypeOf(s)
+	countFields := tags.NumField()
+	for i := 0; i < countFields; i++ {
+
+		value := values.Field(i)
+		field := tags.Field(i)
+		_, ok := field.Tag.Lookup("pg")
+
+		if ok {
+			if field.Name == "tableName" {
+				table = field.Tag.Get("pg")
+			} else if field.Tag.Get("pg") == "id" {
+				log.Println("id" + field.Tag.Get("pg"))
+			} else if queryField.Len() == 0 {
+				queryField.WriteString(field.Tag.Get("pg"))
+				queryValues.WriteString(fieldToString(reflect.ValueOf(value.Interface())))
+			} else {
+				queryField.WriteString("," + field.Tag.Get("pg"))
+				queryValues.WriteString("," + fieldToString(reflect.ValueOf(value.Interface())))
+			}
+		} else {
+			fmt.Println("(not specified)")
+		}
+	}
+
+	query = fmt.Sprintf("%s %s (%s) %s (%s) returning id;", INSERT, table, queryField.String(), VALUES, queryValues.String())
+	fmt.Println(query)
+	return query
+}
+
+func createUpdateQuery(s interface{}) string {
+	query, table, id := "", "", ""
+	queryFieldEqualVal := bytes.Buffer{}
+	values, tags := reflect.ValueOf(s), reflect.TypeOf(s)
+	countFields := tags.NumField()
+	for i := 0; i < countFields; i++ {
+
+		value := values.Field(i)
+		field := tags.Field(i)
+		_, ok := field.Tag.Lookup("pg")
+
+		if ok {
+			if field.Tag.Get("pg") == "id" {
+				id = fieldToString(reflect.ValueOf(value.Interface()))
+			}
+			if field.Name == "tableName" {
+				table = field.Tag.Get("pg")
+			} else if field.Tag.Get("pg") == "id" {
+
+			} else if queryFieldEqualVal.Len() == 0 {
+				queryFieldEqualVal.WriteString(field.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(value.Interface())))
+			} else {
+				queryFieldEqualVal.WriteString("," + field.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(value.Interface())))
+			}
+		} else {
+			fmt.Println("(not specified)")
+		}
+	}
+
+	query = fmt.Sprintf("%s %s %s %s %s %s returning id;", UPDATE, table, SET, queryFieldEqualVal.String(), WHERE_ID, id)
+	fmt.Println(query)
+
+	return query
 }
 
 func getTypeId(domain interface{}) interface{} {
@@ -58,39 +140,6 @@ func getTypeId(domain interface{}) interface{} {
 		}
 	}
 	return ""
-}
-
-func createInsertQuery(s interface{}) string {
-	query, fields, table, values := "", "", "", ""
-
-	val := reflect.ValueOf(s)
-	tags := reflect.TypeOf(s)
-	for i := 0; i < val.NumField(); i++ {
-
-		valueField := val.Field(i)
-		tag := tags.Field(i)
-
-		if _, ok := tag.Tag.Lookup("pg"); ok {
-			if tag.Name == "tableName" {
-				table = tag.Tag.Get("pg")
-			} else if tag.Tag.Get("pg") == "id" {
-				log.Println("id" + tag.Tag.Get("pg"))
-			} else if i == val.NumField()-1 {
-				values += fieldToString(reflect.ValueOf(valueField.Interface()))
-				fields += tag.Tag.Get("pg")
-			} else {
-				values += fieldToString(reflect.ValueOf(valueField.Interface())) + ","
-				fields += tag.Tag.Get("pg") + ","
-			}
-		} else {
-			fmt.Println("(not specified)")
-		}
-	}
-
-	query = "INSERT INTO " + table + " (" + fields + ") values (" + values + ") returning id;"
-	fmt.Println(query)
-
-	return query
 }
 
 func querySelect(s interface{}, id ...interface{}) string {
@@ -133,3 +182,14 @@ func fieldToString(val reflect.Value) string {
 	}
 	return "" //TODO добавить ошибку
 }
+
+//func CreateConnect() (*DBConnection, error) {
+//	context := context.Background()
+//	conn, err := pgx.Connect(context, "postgres://postgres:postgres@localhost:5432/postgres")
+//	if err != nil {
+//		return nil, err
+//	}
+//	defer conn.Close(context)
+//	db := DBConnection{conn}
+//	return &db, nil
+//}
