@@ -15,6 +15,8 @@ const VALUES = "VALUES"
 const UPDATE = "UPDATE"
 const SET = "SET"
 const WHERE_ID = "WHERE id ="
+const DELETE = "DELETE"
+const FROM = "FROM"
 
 type DBConnection struct {
 	connection *pgx.Conn
@@ -26,18 +28,29 @@ func (db *DBConnection) SetConnection(connection *pgx.Conn) {
 
 func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
 	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	defer tx.Rollback(context.Background())
-	id := getTypeId(domain)
 	if err != nil {
 		return nil, err
 	}
-	err = db.connection.QueryRow(context.Background(), createInsertQuery(domain)).Scan(&id)
+	defer tx.Rollback(context.Background())
+	id := getTypeId(domain)
+	hasId, err := db.existRowById(domain)
+	if err != nil {
+		return nil, err
+	}
+	if hasId {
+		err = db.connection.QueryRow(context.Background(), createUpdateQuery(domain)).Scan(&id)
+	} else {
+		err = db.connection.QueryRow(context.Background(), createInsertQuery(domain)).Scan(&id)
+	}
+
 	if err != nil {
 		log.Printf("Error execute query insert %s", err)
+		return nil, err
 	}
 	err = tx.Commit(context.Background())
 	if err != nil {
 		log.Printf("Error commit transaction insert %s", err)
+		return nil, err
 	}
 	return &id, err
 }
@@ -49,12 +62,69 @@ func (db *DBConnection) Update(domain interface{}) (interface{}, error) {
 	err = db.connection.QueryRow(context.Background(), createUpdateQuery(domain)).Scan(&id)
 	if err != nil {
 		log.Printf("Error execute query update %s", err)
+		return nil, err
 	}
 	err = tx.Commit(context.Background())
 	if err != nil {
 		log.Printf("Error commit transaction update %s", err)
+		return nil, err
 	}
 	return &id, err
+}
+
+func (db *DBConnection) DeleteById(domain interface{}, id string) (bool, error) {
+	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(context.Background())
+
+	tag, err := db.connection.Exec(context.Background(), createDeleteQuery(domain, id))
+	log.Printf("Row affected = %d", tag.RowsAffected())
+	if err != nil {
+		log.Printf("Error execute query delete by id=%s, %s", id, err)
+		return false, err
+	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		log.Printf("Error commit transaction update %s", err)
+		return false, err
+	}
+	return true, nil
+}
+
+func (db *DBConnection) existRowById(s interface{}) (bool, error) {
+	id, table := "", ""
+	values, tags := reflect.ValueOf(s), reflect.TypeOf(s)
+	countFields := tags.NumField()
+	for i := 0; i < countFields; i++ {
+
+		value := values.Field(i)
+		field := tags.Field(i)
+		_, ok := field.Tag.Lookup("pg")
+		if ok {
+			if field.Name == "tableName" {
+				table = field.Tag.Get("pg")
+			} else if field.Tag.Get("pg") == "id" {
+				id = fieldToString(reflect.ValueOf(value.Interface()))
+			}
+		}
+	}
+	query := fmt.Sprintf("select exists(select 1 from %s where id=%s)", table, id)
+	rows, err := db.connection.Query(context.Background(), query)
+	defer rows.Close()
+
+	if err != nil {
+		return false, err
+	}
+	var isExist bool
+	for rows.Next() {
+		err := rows.Scan(&isExist)
+		if err != nil {
+			return false, err
+		}
+	}
+	return isExist, nil
 }
 
 func createInsertQuery(s interface{}) string {
@@ -81,8 +151,6 @@ func createInsertQuery(s interface{}) string {
 				queryField.WriteString("," + field.Tag.Get("pg"))
 				queryValues.WriteString("," + fieldToString(reflect.ValueOf(value.Interface())))
 			}
-		} else {
-			fmt.Println("(not specified)")
 		}
 	}
 
@@ -103,26 +171,39 @@ func createUpdateQuery(s interface{}) string {
 		_, ok := field.Tag.Lookup("pg")
 
 		if ok {
-			if field.Tag.Get("pg") == "id" {
-				id = fieldToString(reflect.ValueOf(value.Interface()))
-			}
 			if field.Name == "tableName" {
 				table = field.Tag.Get("pg")
 			} else if field.Tag.Get("pg") == "id" {
-
+				id = fieldToString(reflect.ValueOf(value.Interface()))
 			} else if queryFieldEqualVal.Len() == 0 {
 				queryFieldEqualVal.WriteString(field.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(value.Interface())))
 			} else {
 				queryFieldEqualVal.WriteString("," + field.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(value.Interface())))
 			}
-		} else {
-			fmt.Println("(not specified)")
 		}
 	}
 
 	query = fmt.Sprintf("%s %s %s %s %s %s returning id;", UPDATE, table, SET, queryFieldEqualVal.String(), WHERE_ID, id)
 	fmt.Println(query)
 
+	return query
+}
+
+func createDeleteQuery(s interface{}, id string) string {
+	tableName := ""
+	tags := reflect.TypeOf(s)
+
+	for i := 0; i < tags.NumField(); i++ {
+		tag := tags.Field(i)
+		_, ok := tag.Tag.Lookup("pg")
+		if ok {
+			if tag.Name == "tableName" {
+				tableName = tag.Tag.Get("pg")
+			}
+		}
+	}
+	query := fmt.Sprintf("%s %s %s %s%s;", DELETE, FROM, tableName, WHERE_ID, id)
+	fmt.Println(query)
 	return query
 }
 

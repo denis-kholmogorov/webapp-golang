@@ -10,5 +10,5 @@ func CreatePaths(e *gin.Engine, service *service.PersonService) {
 	//e.GET("/model/:id", service.GetById)
 	e.POST("/model", service.Create)
 	e.PUT("/model", service.Update)
-	//e.DELETE("/model/:id", service.DeleteById)
+	e.DELETE("/model/:id", service.DeleteById)
 }

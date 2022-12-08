@@ -63,6 +63,17 @@ func (s *PersonService) Update(c *gin.Context) {
 	}
 }
 
+func (s *PersonService) DeleteById(c *gin.Context) {
+	var person Person
+	id := c.Param("id")
+	_, err := s.repository.DeleteById(person, id)
+	if err != nil {
+		log.Panic(c.AbortWithError(http.StatusBadRequest, err))
+	} else {
+		c.JSON(http.StatusCreated, &id)
+	}
+}
+
 func bindJson(c *gin.Context, value any) {
 	err := c.BindJSON(value)
 	if err != nil {
@@ -139,24 +150,6 @@ func bindJson(c *gin.Context, value any) {
 //	err = tx.Commit(context)
 //	c.JSON(http.StatusOK, id)
 //}
-
-func createDeleteQuery(s interface{}, id string) string {
-	tableName := ""
-
-	tags := reflect.TypeOf(s)
-
-	for i := 0; i < tags.NumField(); i++ {
-		tag := tags.Field(i)
-
-		if _, ok := tag.Tag.Lookup("pg"); ok {
-			if tag.Name == "tableName" {
-				tableName = tag.Tag.Get("pg")
-			}
-		}
-	}
-	query := "DELETE FROM " + tableName + " WHERE ID =" + id
-	return query
-}
 
 func createUpdateQuery(s interface{}) string {
 	table, fields, query, id := "", "", "", ""
