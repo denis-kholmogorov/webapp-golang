@@ -7,14 +7,16 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"time"
 	"web/repository"
 )
 
 type Person struct {
-	tableName struct{} `pg:"public.person"`
-	Id        int      `json:"id" pg:"id"`
-	Age       int      `json:"age" pg:"age"`
-	FirstName string   `json:"firstName" pg:"first_name"`
+	tableName struct{}  `pg:"public.person"`
+	Id        int       `json:"id" pg:"id"`
+	Age       int       `json:"age" pg:"age"`
+	FirstName string    `json:"firstName" pg:"first_name"`
+	Birthday  time.Time `json:"birthday" pg:"birthday" time_format:"2006-01-02 15:04:05.99Z07:00"`
 }
 
 type PersonService struct {
@@ -55,6 +57,7 @@ func (s *PersonService) Create(c *gin.Context) {
 func (s *PersonService) Update(c *gin.Context) {
 	var person Person
 	bindJson(c, &person)
+	log.Printf("Update person %v", person)
 	id, err := s.repository.Update(person)
 	if err != nil {
 		log.Panic(c.AbortWithError(http.StatusBadRequest, err))
@@ -167,7 +170,7 @@ func createUpdateQuery(s interface{}) string {
 			} else if tag.Name == "Id" {
 				id = fieldToString(reflect.ValueOf(valueField.Interface()))
 				if id == "" {
-					log.Fatal("Id not will be nill")
+					log.Fatal("Id not will be nil")
 				}
 			} else if i == val.NumField()-1 {
 				fields += tag.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(valueField.Interface()))
@@ -243,7 +246,7 @@ func createInsertQuery(s interface{}) string {
 		}
 	}
 
-	query = "INSERT INTO " + table + " (" + fields + ") values (" + values + ") returning id;"
+	query = "INSERT INTO" + table + " (" + fields + ") values (" + values + ") returning id;"
 	fmt.Println(query)
 
 	return query

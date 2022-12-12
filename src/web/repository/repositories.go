@@ -8,6 +8,7 @@ import (
 	"log"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 const INSERT = "INSERT INTO"
@@ -106,7 +107,7 @@ func (db *DBConnection) existRowById(s interface{}) (bool, error) {
 			if field.Name == "tableName" {
 				table = field.Tag.Get("pg")
 			} else if field.Tag.Get("pg") == "id" {
-				id = fieldToString(reflect.ValueOf(value.Interface()))
+				id = fieldToString(reflect.ValueOf(value.Interface()), field)
 			}
 		}
 	}
@@ -146,10 +147,10 @@ func createInsertQuery(s interface{}) string {
 				log.Println("id" + field.Tag.Get("pg"))
 			} else if queryField.Len() == 0 {
 				queryField.WriteString(field.Tag.Get("pg"))
-				queryValues.WriteString(fieldToString(reflect.ValueOf(value.Interface())))
+				queryValues.WriteString(fieldToString(value, field))
 			} else {
 				queryField.WriteString("," + field.Tag.Get("pg"))
-				queryValues.WriteString("," + fieldToString(reflect.ValueOf(value.Interface())))
+				queryValues.WriteString("," + fieldToString(value, field))
 			}
 		}
 	}
@@ -174,11 +175,11 @@ func createUpdateQuery(s interface{}) string {
 			if field.Name == "tableName" {
 				table = field.Tag.Get("pg")
 			} else if field.Tag.Get("pg") == "id" {
-				id = fieldToString(reflect.ValueOf(value.Interface()))
+				id = fieldToString(reflect.ValueOf(value.Interface()), field)
 			} else if queryFieldEqualVal.Len() == 0 {
-				queryFieldEqualVal.WriteString(field.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(value.Interface())))
+				queryFieldEqualVal.WriteString(field.Tag.Get("pg") + "=" + fieldToString(value, field))
 			} else {
-				queryFieldEqualVal.WriteString("," + field.Tag.Get("pg") + "=" + fieldToString(reflect.ValueOf(value.Interface())))
+				queryFieldEqualVal.WriteString("," + field.Tag.Get("pg") + "=" + fieldToString(value, field))
 			}
 		}
 	}
@@ -217,6 +218,8 @@ func getTypeId(domain interface{}) interface{} {
 				return val.Field(i).Int()
 			case reflect.String:
 				return "'" + val.Field(i).String() + "'"
+			default:
+				return "'" + val.Field(i).String() + "'"
 			}
 		}
 	}
@@ -254,14 +257,21 @@ func querySelect(s interface{}, id ...interface{}) string {
 	return query
 }
 
-func fieldToString(val reflect.Value) string {
-	switch val.Kind() {
+func fieldToString(value reflect.Value, tag reflect.StructField) string {
+	switch value.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.Itoa(int(val.Int()))
+		return strconv.Itoa(int(value.Int()))
 	case reflect.String:
-		return "'" + val.String() + "'"
+		return "'" + value.String() + "'"
+	case reflect.Struct:
+		if value.Type() == (reflect.TypeOf(time.Time{})) {
+			t := value.Interface().(time.Time)
+			return fmt.Sprintf("'%s'", t.Format(tag.Tag.Get("time_format")))
+		}
+	default:
+		return ""
 	}
-	return "" //TODO добавить ошибку
+	return ""
 }
 
 //func CreateConnect() (*DBConnection, error) {
