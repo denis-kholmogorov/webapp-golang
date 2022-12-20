@@ -7,17 +7,9 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"time"
+	"web/domain"
 	"web/repository"
 )
-
-type Person struct {
-	tableName struct{}  `pg:"public.person"`
-	Id        int       `json:"id" pg:"id"`
-	Age       int       `json:"age" pg:"age"`
-	FirstName string    `json:"firstName" pg:"first_name"`
-	Birthday  time.Time `json:"birthday" pg:"birthday" time_format:"2006-01-02 15:04:05.99Z07:00"`
-}
 
 type PersonService struct {
 	//repository *pgx.Conn
@@ -28,21 +20,21 @@ func (s *PersonService) SetRepo(r *repository.DBConnection) {
 	s.repository = r
 }
 
-//func (s *PersonService) GetById(c *gin.Context) {
-//	person := Person{}
-//	id := c.Param("id")
-//	err := pgxscan.Get(context.Background(), s.repository, &person, createSelectQuery(person, id), id)
-//
-//	if err != nil {
-//		log.Printf(err.Error())
-//		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
-//	} else {
-//		c.JSON(http.StatusOK, person)
-//	}
-//}
+func (s *PersonService) GetById(c *gin.Context) {
+	person := domain.Person{}
+	id := c.Param("id")
+	byId := s.repository.FindById(person, id)
+
+	//if _ != nil {
+	//	log.Printf(err.Error())
+	//	c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+	//} else {
+	c.JSON(http.StatusOK, byId)
+	//}
+}
 
 func (s *PersonService) Create(c *gin.Context) {
-	person := Person{}
+	person := domain.Person{}
 	bindJson(c, &person)
 	log.Printf("Create new person %v", person)
 	id, err := s.repository.Create(person)
@@ -55,7 +47,7 @@ func (s *PersonService) Create(c *gin.Context) {
 }
 
 func (s *PersonService) Update(c *gin.Context) {
-	var person Person
+	var person domain.Person
 	bindJson(c, &person)
 	log.Printf("Update person %v", person)
 	id, err := s.repository.Update(person)
@@ -67,7 +59,7 @@ func (s *PersonService) Update(c *gin.Context) {
 }
 
 func (s *PersonService) DeleteById(c *gin.Context) {
-	var person Person
+	var person domain.Person
 	id := c.Param("id")
 	_, err := s.repository.DeleteById(person, id)
 	if err != nil {
@@ -182,7 +174,7 @@ func createUpdateQuery(s interface{}) string {
 		}
 	}
 
-	query = "UPDATE " + table + " SET " + fields + " WHERE id=" + id + " returning id;"
+	query = "update " + table + " SET " + fields + " WHERE id=" + id + " returning id;"
 	fmt.Println(query)
 
 	return query
@@ -246,7 +238,7 @@ func createInsertQuery(s interface{}) string {
 		}
 	}
 
-	query = "INSERT INTO" + table + " (" + fields + ") values (" + values + ") returning id;"
+	query = "insert INTO" + table + " (" + fields + ") values (" + values + ") returning id;"
 	fmt.Println(query)
 
 	return query

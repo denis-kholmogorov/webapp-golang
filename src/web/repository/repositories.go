@@ -9,15 +9,21 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+	"web/domain"
 )
 
-const INSERT = "INSERT INTO"
+const insert = "INSERT INTO"
+const SELECT_ = "SELECT"
 const VALUES = "VALUES"
-const UPDATE = "UPDATE"
+const update = "UPDATE"
 const SET = "SET"
 const WHERE_ID = "WHERE id ="
 const DELETE = "DELETE"
 const FROM = "FROM"
+const PG = "pg"
+const ID = "id"
+const SELECT_EXISTS_ID = "select exists(select 1 from %s where id=%s)"
+const TABLE_NAME = "tableName"
 
 type DBConnection struct {
 	connection *pgx.Conn
@@ -94,24 +100,24 @@ func (db *DBConnection) DeleteById(domain interface{}, id string) (bool, error) 
 	return true, nil
 }
 
-func (db *DBConnection) existRowById(s interface{}) (bool, error) {
+func (db *DBConnection) existRowById(domain interface{}) (bool, error) {
 	id, table := "", ""
-	values, tags := reflect.ValueOf(s), reflect.TypeOf(s)
+	values, tags := reflect.ValueOf(domain), reflect.TypeOf(domain)
 	countFields := tags.NumField()
 	for i := 0; i < countFields; i++ {
 
 		value := values.Field(i)
 		field := tags.Field(i)
-		_, ok := field.Tag.Lookup("pg")
+		_, ok := field.Tag.Lookup(PG)
 		if ok {
-			if field.Name == "tableName" {
-				table = field.Tag.Get("pg")
-			} else if field.Tag.Get("pg") == "id" {
+			if field.Name == TABLE_NAME {
+				table = field.Tag.Get(PG)
+			} else if field.Tag.Get(PG) == ID {
 				id = fieldToString(reflect.ValueOf(value.Interface()), field)
 			}
 		}
 	}
-	query := fmt.Sprintf("select exists(select 1 from %s where id=%s)", table, id)
+	query := fmt.Sprintf(SELECT_EXISTS_ID, table, id)
 	rows, err := db.connection.Query(context.Background(), query)
 	defer rows.Close()
 
@@ -135,27 +141,25 @@ func createInsertQuery(s interface{}) string {
 	values, tags := reflect.ValueOf(s), reflect.TypeOf(s)
 	countFields := tags.NumField()
 	for i := 0; i < countFields; i++ {
-
 		value := values.Field(i)
 		field := tags.Field(i)
-		_, ok := field.Tag.Lookup("pg")
-
-		if ok {
-			if field.Name == "tableName" {
-				table = field.Tag.Get("pg")
-			} else if field.Tag.Get("pg") == "id" {
-				log.Println("id" + field.Tag.Get("pg"))
-			} else if queryField.Len() == 0 {
-				queryField.WriteString(field.Tag.Get("pg"))
+		if _, ok := field.Tag.Lookup(PG); ok {
+			switch {
+			case field.Name == TABLE_NAME:
+				table = field.Tag.Get(PG)
+			case field.Tag.Get(PG) == ID:
+				log.Println(ID + field.Tag.Get(PG))
+			case queryField.Len() == 0:
+				queryField.WriteString(field.Tag.Get(PG))
 				queryValues.WriteString(fieldToString(value, field))
-			} else {
-				queryField.WriteString("," + field.Tag.Get("pg"))
+			default:
+				queryField.WriteString("," + field.Tag.Get(PG))
 				queryValues.WriteString("," + fieldToString(value, field))
 			}
 		}
 	}
 
-	query = fmt.Sprintf("%s %s (%s) %s (%s) returning id;", INSERT, table, queryField.String(), VALUES, queryValues.String())
+	query = fmt.Sprintf("%s %s (%s) %s (%s) returning id;", insert, table, queryField.String(), VALUES, queryValues.String())
 	fmt.Println(query)
 	return query
 }
@@ -167,26 +171,23 @@ func createUpdateQuery(s interface{}) string {
 	countFields := tags.NumField()
 	for i := 0; i < countFields; i++ {
 
-		value := values.Field(i)
-		field := tags.Field(i)
-		_, ok := field.Tag.Lookup("pg")
-
-		if ok {
-			if field.Name == "tableName" {
-				table = field.Tag.Get("pg")
-			} else if field.Tag.Get("pg") == "id" {
+		value, field := values.Field(i), tags.Field(i)
+		if _, ok := field.Tag.Lookup(PG); ok {
+			switch {
+			case field.Name == TABLE_NAME:
+				table = field.Tag.Get(PG)
+			case field.Tag.Get(PG) == ID:
 				id = fieldToString(reflect.ValueOf(value.Interface()), field)
-			} else if queryFieldEqualVal.Len() == 0 {
-				queryFieldEqualVal.WriteString(field.Tag.Get("pg") + "=" + fieldToString(value, field))
-			} else {
-				queryFieldEqualVal.WriteString("," + field.Tag.Get("pg") + "=" + fieldToString(value, field))
+			case queryFieldEqualVal.Len() == 0:
+				queryFieldEqualVal.WriteString(field.Tag.Get(PG) + "=" + fieldToString(value, field))
+			default:
+				queryFieldEqualVal.WriteString("," + field.Tag.Get(PG) + "=" + fieldToString(value, field))
+
 			}
 		}
 	}
-
-	query = fmt.Sprintf("%s %s %s %s %s %s returning id;", UPDATE, table, SET, queryFieldEqualVal.String(), WHERE_ID, id)
+	query = fmt.Sprintf("%s %s %s %s %s %s returning id;", update, table, SET, queryFieldEqualVal.String(), WHERE_ID, id)
 	fmt.Println(query)
-
 	return query
 }
 
@@ -196,11 +197,8 @@ func createDeleteQuery(s interface{}, id string) string {
 
 	for i := 0; i < tags.NumField(); i++ {
 		tag := tags.Field(i)
-		_, ok := tag.Tag.Lookup("pg")
-		if ok {
-			if tag.Name == "tableName" {
-				tableName = tag.Tag.Get("pg")
-			}
+		if _, ok := tag.Tag.Lookup(PG); ok && tag.Name == TABLE_NAME {
+			tableName = tag.Tag.Get(PG)
 		}
 	}
 	query := fmt.Sprintf("%s %s %s %s%s;", DELETE, FROM, tableName, WHERE_ID, id)
@@ -209,50 +207,80 @@ func createDeleteQuery(s interface{}, id string) string {
 }
 
 func getTypeId(domain interface{}) interface{} {
-	val := reflect.ValueOf(domain)
-	tags := reflect.TypeOf(domain)
+	val, tags := reflect.ValueOf(domain), reflect.TypeOf(domain)
 	for i := 0; i < val.NumField(); i++ {
-		if tags.Field(i).Tag.Get("pg") == "id" {
+		if tags.Field(i).Tag.Get(PG) == ID {
 			switch val.Field(i).Kind() {
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				return val.Field(i).Int()
 			case reflect.String:
-				return "'" + val.Field(i).String() + "'"
+				return fmt.Sprintf("'%s'", val.Field(i).String())
 			default:
-				return "'" + val.Field(i).String() + "'"
+				return fmt.Sprintf("'%s'", val.Field(i).String())
 			}
 		}
 	}
 	return ""
 }
 
-func querySelect(s interface{}, id ...interface{}) string {
-	query := ""
-	table := ""
+func (db *DBConnection) FindById(s interface{}, id string) interface{} {
 
-	st := reflect.TypeOf(s)
-	countFields := st.NumField()
+	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer tx.Rollback(context.Background())
+	rows, err := db.connection.Query(context.Background(), createSelectQuery(s, id))
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer rows.Close()
+
+	rows.Next()
+	data, err := rows.Values()
+	fields := rows.FieldDescriptions()
+	entity := reflect.New(reflect.TypeOf(s)).Elem().Interface().(domain.Person)
+	value := reflect.ValueOf(&entity).Elem()
+
+	value.Field(1).SetInt(20)
+
+	fmt.Println(fields[0].Name, data[0], entity)
+	if err != nil {
+		return ""
+	}
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	//fmt.Println(entity)
+
+	return ""
+}
+
+func createSelectQuery(s interface{}, id ...string) string {
+	query, table := "", ""
+	queryField := bytes.Buffer{}
+	tags := reflect.TypeOf(s)
+	countFields := tags.NumField()
 	for i := 0; i < countFields; i++ {
-
-		field := st.Field(i)
-		if alias, ok := field.Tag.Lookup("pg"); ok {
-			if field.Name == "tableName" {
-				table = field.Tag.Get("pg")
-			} else if i == countFields-1 {
-				query += alias
-			} else {
-				query += alias + ","
+		field := tags.Field(i)
+		if _, ok := field.Tag.Lookup(PG); ok {
+			switch {
+			case field.Name == TABLE_NAME:
+				table = field.Tag.Get(PG)
+			case queryField.Len() == 0:
+				queryField.WriteString(field.Tag.Get(PG))
+			default:
+				queryField.WriteString("," + field.Tag.Get(PG))
 			}
-		} else {
-			fmt.Println("(not specified)")
 		}
 	}
-	if len(id) != 0 {
-		query = "SELECT " + query + " FROM " + table + " WHERE id =$1;"
-	} else {
-		query = "SELECT " + query + " FROM " + table
-	}
 
+	if len(id) == 1 {
+		query = fmt.Sprintf("%s %s %s %s %s %s;", SELECT_, queryField.String(), FROM, table, WHERE_ID, id[0])
+	} else {
+		query = fmt.Sprintf("%s %s %s %s;", SELECT_, queryField.String(), FROM, table)
+	}
 	fmt.Println(query)
 	return query
 }
@@ -262,11 +290,11 @@ func fieldToString(value reflect.Value, tag reflect.StructField) string {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.Itoa(int(value.Int()))
 	case reflect.String:
-		return "'" + value.String() + "'"
+		return fmt.Sprintf("'%s'", value.String())
 	case reflect.Struct:
-		if value.Type() == (reflect.TypeOf(time.Time{})) {
-			t := value.Interface().(time.Time)
-			return fmt.Sprintf("'%s'", t.Format(tag.Tag.Get("time_format")))
+		switch value.Type() {
+		case reflect.TypeOf(time.Time{}):
+			return fmt.Sprintf("'%s'", value.Interface().(time.Time).Format(tag.Tag.Get("time_format")))
 		}
 	default:
 		return ""
