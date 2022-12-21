@@ -32,8 +32,47 @@ func (db *DBConnection) SetConnection(connection *pgx.Conn) {
 	db.connection = connection
 }
 
+// FindById Find domain by id
+func (db *DBConnection) FindById(domainType interface{}, id string) (interface{}, error) {
+	tx, err := db.startTransaction()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(context.Background())
+	rows, err := db.connection.Query(context.Background(), createSelectQuery(domainType, id))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	domains := *fetchRows(rows, domainType)
+	if len(domains) == 0 {
+		return nil, nil
+	}
+	return domains[0], nil
+}
+
+// FindAll Find all domain
+func (db *DBConnection) FindAll(domainType interface{}) (interface{}, error) {
+
+	tx, err := db.startTransaction()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(context.Background())
+	rows, err := db.connection.Query(context.Background(), createSelectQuery(domainType))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	domains := fetchRows(rows, domainType)
+	return domains, nil
+}
+
+// Create new domain
 func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
-	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	tx, err := db.startTransaction()
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +100,9 @@ func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
 	return &id, err
 }
 
+// Update domain
 func (db *DBConnection) Update(domain interface{}) (interface{}, error) {
-	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	tx, err := db.startTransaction()
 	defer tx.Rollback(context.Background())
 	id := getTypeId(domain)
 	err = db.connection.QueryRow(context.Background(), createUpdateQuery(domain)).Scan(&id)
@@ -78,8 +118,9 @@ func (db *DBConnection) Update(domain interface{}) (interface{}, error) {
 	return &id, err
 }
 
+// DeleteById delete domain by id
 func (db *DBConnection) DeleteById(domain interface{}, id string) (bool, error) {
-	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	tx, err := db.startTransaction()
 	if err != nil {
 		return false, err
 	}
@@ -135,8 +176,7 @@ func (db *DBConnection) existRowById(domain interface{}) (bool, error) {
 
 func createInsertQuery(s interface{}) string {
 	query, table := "", ""
-	queryField := bytes.Buffer{}
-	queryValues := bytes.Buffer{}
+	queryField, queryValues := bytes.Buffer{}, bytes.Buffer{}
 	values, tags := reflect.ValueOf(s), reflect.TypeOf(s)
 	countFields := tags.NumField()
 	for i := 0; i < countFields; i++ {
@@ -222,45 +262,6 @@ func getTypeId(domain interface{}) interface{} {
 	return ""
 }
 
-func (db *DBConnection) FindById(s interface{}, id string) (interface{}, error) {
-
-	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(context.Background())
-	rows, err := db.connection.Query(context.Background(), createSelectQuery(s, id))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var domains []interface{}
-	for rows.Next() {
-		data, _ := rows.Values()
-		fields := rows.FieldDescriptions()
-		domain := reflect.New(reflect.TypeOf(s))
-		for i, field := range fields {
-			typeDomain := domain.Type().Elem()
-			for l := 0; l < typeDomain.NumField(); l++ {
-				fmt.Print(typeDomain.Field(l).Tag.Get(PG), "\n")
-				if typeDomain.Field(l).Tag.Get(PG) == field.Name {
-					field := domain.Elem().Field(l)
-					setValue(field, data[i])
-					break
-				}
-			}
-		}
-		fmt.Println(fields[0].Name, data[0], domain)
-		domains = append(domains, domain.Interface())
-	}
-
-	if len(domains) == 0 {
-		return nil, nil
-	}
-	return domains[0], nil
-}
-
 func createSelectQuery(s interface{}, id ...string) string {
 	query, table := "", ""
 	queryField := bytes.Buffer{}
@@ -306,6 +307,27 @@ func fieldToString(value reflect.Value, tag reflect.StructField) string {
 	return ""
 }
 
+func fetchRows(rows pgx.Rows, domainType interface{}) *[]interface{} {
+	var domains []interface{}
+	for rows.Next() {
+		data, _ := rows.Values()
+		fields := rows.FieldDescriptions()
+		domain := reflect.New(reflect.TypeOf(domainType))
+		for i, field := range fields {
+			typeDomain := domain.Type().Elem()
+			for l := 0; l < typeDomain.NumField(); l++ {
+				if typeDomain.Field(l).Tag.Get(PG) == field.Name && data[i] != nil {
+					field := domain.Elem().Field(l)
+					setValue(field, data[i])
+					break
+				}
+			}
+		}
+		domains = append(domains, domain.Interface())
+	}
+	return &domains
+}
+
 func setValue(field reflect.Value, value any) {
 	switch reflect.ValueOf(value).Kind() {
 	case reflect.Int64:
@@ -329,13 +351,10 @@ func setValue(field reflect.Value, value any) {
 	}
 }
 
-//func CreateConnect() (*DBConnection, error) {
-//	context := context.Background()
-//	conn, err := pgx.Connect(context, "postgres://postgres:postgres@localhost:5432/postgres")
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer conn.Close(context)
-//	db := DBConnection{conn}
-//	return &db, nil
-//}
+func (db *DBConnection) startTransaction() (pgx.Tx, error) {
+	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}

@@ -32,6 +32,18 @@ func (s *PersonService) GetById(c *gin.Context) {
 	}
 }
 
+func (s *PersonService) GetAll(c *gin.Context) {
+	person := domain.Person{}
+	id := c.Param("id")
+	domainPerson, err := s.repository.FindAll(person)
+	if err != nil {
+		log.Printf(err.Error())
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+	} else {
+		c.JSON(http.StatusOK, domainPerson)
+	}
+}
+
 func (s *PersonService) Create(c *gin.Context) {
 	person := domain.Person{}
 	bindJson(c, &person)
