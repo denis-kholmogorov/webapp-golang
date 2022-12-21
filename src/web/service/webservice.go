@@ -23,14 +23,13 @@ func (s *PersonService) SetRepo(r *repository.DBConnection) {
 func (s *PersonService) GetById(c *gin.Context) {
 	person := domain.Person{}
 	id := c.Param("id")
-	byId := s.repository.FindById(person, id)
-
-	//if _ != nil {
-	//	log.Printf(err.Error())
-	//	c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
-	//} else {
-	c.JSON(http.StatusOK, byId)
-	//}
+	domainPerson, err := s.repository.FindById(person, id)
+	if err != nil {
+		log.Printf(err.Error())
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+	} else {
+		c.JSON(http.StatusOK, domainPerson)
+	}
 }
 
 func (s *PersonService) Create(c *gin.Context) {

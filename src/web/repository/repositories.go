@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-	"web/domain"
 )
 
 const insert = "INSERT INTO"
@@ -223,38 +222,43 @@ func getTypeId(domain interface{}) interface{} {
 	return ""
 }
 
-func (db *DBConnection) FindById(s interface{}, id string) interface{} {
+func (db *DBConnection) FindById(s interface{}, id string) (interface{}, error) {
 
 	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 	defer tx.Rollback(context.Background())
 	rows, err := db.connection.Query(context.Background(), createSelectQuery(s, id))
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	rows.Next()
-	data, err := rows.Values()
-	fields := rows.FieldDescriptions()
-	entity := reflect.New(reflect.TypeOf(s)).Elem().Interface().(domain.Person)
-	value := reflect.ValueOf(&entity).Elem()
-
-	value.Field(1).SetInt(20)
-
-	fmt.Println(fields[0].Name, data[0], entity)
-	if err != nil {
-		return ""
+	var domains []interface{}
+	for rows.Next() {
+		data, _ := rows.Values()
+		fields := rows.FieldDescriptions()
+		domain := reflect.New(reflect.TypeOf(s))
+		for i, field := range fields {
+			typeDomain := domain.Type().Elem()
+			for l := 0; l < typeDomain.NumField(); l++ {
+				fmt.Print(typeDomain.Field(l).Tag.Get(PG), "\n")
+				if typeDomain.Field(l).Tag.Get(PG) == field.Name {
+					field := domain.Elem().Field(l)
+					setValue(field, data[i])
+					break
+				}
+			}
+		}
+		fmt.Println(fields[0].Name, data[0], domain)
+		domains = append(domains, domain.Interface())
 	}
 
-	if err != nil {
-		fmt.Println(err)
+	if len(domains) == 0 {
+		return nil, nil
 	}
-	//fmt.Println(entity)
-
-	return ""
+	return domains[0], nil
 }
 
 func createSelectQuery(s interface{}, id ...string) string {
@@ -300,6 +304,29 @@ func fieldToString(value reflect.Value, tag reflect.StructField) string {
 		return ""
 	}
 	return ""
+}
+
+func setValue(field reflect.Value, value any) {
+	switch reflect.ValueOf(value).Kind() {
+	case reflect.Int64:
+		field.SetInt(value.(int64))
+	case reflect.Int32:
+		field.SetInt(int64(value.(int32)))
+	case reflect.Int16:
+		field.SetInt(int64(value.(int16)))
+	case reflect.Int8:
+		field.SetInt(int64(value.(int8)))
+	case reflect.Float32:
+		field.SetFloat(float64(value.(float32)))
+	case reflect.Float64:
+		field.SetFloat(value.(float64))
+	case reflect.Uintptr:
+		field.SetUint(value.(uint64))
+	case reflect.Int:
+		field.SetInt(int64(value.(int)))
+	default:
+		field.Set(reflect.ValueOf(value))
+	}
 }
 
 //func CreateConnect() (*DBConnection, error) {
