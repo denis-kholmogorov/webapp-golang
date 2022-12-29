@@ -52,6 +52,28 @@ func (db *DBConnection) FindById(domainType interface{}, id string) (interface{}
 	return domains[0], nil
 }
 
+// TODO доделать
+// FindByFields Find domain by fields
+func (db *DBConnection) FindByFields(domainType interface{}, fields ...interface{}) (interface{}, error) {
+	tx, err := db.startTransaction()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(context.Background())
+	fmt.Println(fmt.Sprintf("%s * %s public.person WHERE 'email'=%s;", SELECT_, FROM, fields[0]))
+	rows, err := db.connection.Query(context.Background(), fmt.Sprintf("%s * %s public.person WHERE email = '%s';", SELECT_, FROM, fields[0]))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	domains := *fetchRows(rows, domainType)
+	if len(domains) == 0 {
+		return nil, nil
+	}
+	return domains[0], nil
+}
+
 // FindAll Find all domain
 func (db *DBConnection) FindAll(domainType interface{}) (interface{}, error) {
 
@@ -66,7 +88,7 @@ func (db *DBConnection) FindAll(domainType interface{}) (interface{}, error) {
 	}
 	defer rows.Close()
 
-	domains := fetchRows(rows, domainType)
+	domains := *fetchRows(rows, domainType)
 	return domains, nil
 }
 

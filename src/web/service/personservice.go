@@ -12,7 +12,6 @@ import (
 )
 
 type PersonService struct {
-	//repository *pgx.Conn
 	repository *repository.DBConnection
 }
 

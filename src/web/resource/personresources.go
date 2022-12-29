@@ -5,7 +5,7 @@ import (
 	"web/service"
 )
 
-func CreatePaths(e *gin.Engine, service *service.PersonService) {
+func PersonResource(e *gin.Engine, service *service.PersonService) {
 	e.GET("/person", service.GetAll)
 	e.GET("/person/:id", service.GetById)
 	e.POST("/person", service.Create)
