@@ -30,6 +30,9 @@ func main() {
 	resource.PersonResource(server, &personService)
 	resource.AuthResource(server, &authService)
 	conn, err := pgx.Connect(context.Background(), getDBUrl())
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer conn.Close(context.Background())
 	db := repository.DBConnection{}
 	db.SetConnection(conn)

@@ -17,6 +17,7 @@ const VALUES = "VALUES"
 const update = "UPDATE"
 const SET = "SET"
 const WHERE_ID = "WHERE id ="
+const WHERE = "WHERE"
 const DELETE = "DELETE"
 const FROM = "FROM"
 const PG = "pg"
@@ -89,6 +90,24 @@ func (db *DBConnection) FindAll(domainType interface{}) (interface{}, error) {
 	defer rows.Close()
 
 	domains := *fetchRows(rows, domainType)
+	return domains, nil
+}
+
+// FindAllFields Find all domain
+func (db *DBConnection) FindAllFields(domain interface{}, specification *Specification) (interface{}, error) {
+
+	tx, err := db.startTransaction()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(context.Background())
+	rows, err := db.connection.Query(context.Background(), createSelectQueryField(domain, specification))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	domains := *fetchRows(rows, domain)
 	return domains, nil
 }
 
@@ -308,6 +327,24 @@ func createSelectQuery(s interface{}, id ...string) string {
 	} else {
 		query = fmt.Sprintf("%s %s %s %s;", SELECT_, queryField.String(), FROM, table)
 	}
+	fmt.Println(query)
+	return query
+}
+
+func createSelectQueryField(s interface{}, spec *Specification) string {
+	table, query := "", ""
+	tags := reflect.TypeOf(s)
+	countFields := tags.NumField()
+	for i := 0; i < countFields; i++ {
+		field := tags.Field(i)
+		if _, ok := field.Tag.Lookup(PG); ok {
+			switch {
+			case field.Name == TABLE_NAME:
+				table = field.Tag.Get(PG)
+			}
+		}
+	}
+	query = fmt.Sprintf("%s * %s %s %s;", SELECT_, FROM, table, spec.Build())
 	fmt.Println(query)
 	return query
 }

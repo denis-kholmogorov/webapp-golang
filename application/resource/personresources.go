@@ -7,6 +7,7 @@ import (
 
 func PersonResource(e *gin.Engine, service *service.PersonService) {
 	e.GET("/person", service.GetAll)
+	e.GET("/person/fields", service.GetAllFields)
 	e.GET("/person/:id", service.GetById)
 	e.POST("/person", service.Create)
 	e.PUT("/person", service.Update)
