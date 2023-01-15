@@ -31,14 +31,12 @@ func (s *PersonService) GetById(c *gin.Context) {
 
 func (s *PersonService) GetAllFields(c *gin.Context) {
 	person := domain.Person{}
-	personSearch := domain.PersonSearchDto{
-		FirstName: c.Query("first_name"),
-		LastName:  c.Query("last_name"),
-	}
-	spec := repository.CreateSpec().
-		Like(personSearch.LastName, "LastName", personSearch).
+	personSearch := domain.PersonSearchDto{}
+	bindQuery(c, &personSearch)
+	spec := repository.SpecBuilder().
+		Like(personSearch.LastName, "LastName", personSearch, true).
 		Or().
-		Like(personSearch.FirstName, "FirstName", personSearch)
+		Equals(personSearch.FirstName, "FirstName", personSearch)
 
 	domainPerson, err := s.repository.FindAllFields(person, spec)
 	if err != nil {
@@ -102,6 +100,14 @@ func bindJson(c *gin.Context, value any) {
 	err := c.BindJSON(value)
 	if err != nil {
 		fmt.Printf("Can't parse json from request %s", err.Error())
+		c.AbortWithStatus(http.StatusBadRequest)
+	}
+}
+
+func bindQuery(c *gin.Context, value any) {
+	err := c.BindQuery(value)
+	if err != nil {
+		fmt.Printf(err.Error())
 		c.AbortWithStatus(http.StatusBadRequest)
 	}
 }
