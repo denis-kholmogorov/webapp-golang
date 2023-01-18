@@ -11,6 +11,7 @@ import (
 
 type PersonService struct {
 	repository *repository.DBConnection
+	person     domain.Person
 }
 
 func (s *PersonService) SetRepo(r *repository.DBConnection) {
@@ -18,9 +19,8 @@ func (s *PersonService) SetRepo(r *repository.DBConnection) {
 }
 
 func (s *PersonService) GetById(c *gin.Context) {
-	person := domain.Person{}
 	id := c.Param("id")
-	domainPerson, err := s.repository.FindById(person, id)
+	domainPerson, err := s.repository.FindById(s.person, id)
 	if err != nil {
 		log.Printf(err.Error())
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))

@@ -16,8 +16,8 @@ import (
 
 func init() {
 	// loads values from .env into the system
-	if err := godotenv.Load(); err != nil {
-		log.Print("No .env file found")
+	if err := godotenv.Load("application/.env"); err != nil {
+		log.Println("No .env file found")
 	}
 }
 
@@ -25,8 +25,9 @@ func main() {
 
 	personService := service.PersonService{}
 	authService := service.AuthService{}
+	sec := security.NewSecurity()
 	server := gin.Default()
-	server.Use(security.AuthMiddleware)
+	server.Use(sec.AuthMiddleware)
 	resource.PersonResource(server, &personService)
 	resource.AuthResource(server, &authService)
 	conn, err := pgx.Connect(context.Background(), getDBUrl())
