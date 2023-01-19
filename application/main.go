@@ -14,6 +14,10 @@ import (
 	"web/application/service"
 )
 
+// TODO использовать в репозиториях дженерики
+type ApplicationContext struct {
+}
+
 func init() {
 	// loads values from .env into the system
 	if err := godotenv.Load("application/.env"); err != nil {
@@ -22,28 +26,29 @@ func init() {
 }
 
 func main() {
-
-	personService := service.PersonService{}
-	authService := service.AuthService{}
-	sec := security.NewSecurity()
-	server := gin.Default()
-	server.Use(sec.AuthMiddleware)
-	resource.PersonResource(server, &personService)
-	resource.AuthResource(server, &authService)
-	conn, err := pgx.Connect(context.Background(), getDBUrl())
-	if err != nil {
-		log.Fatal(err)
-	}
+	conn := createDbConnection()
 	defer conn.Close(context.Background())
-	db := repository.DBConnection{}
-	db.SetConnection(conn)
-	personService.SetRepo(&db)
-	authService.SetRepo(&db)
-	err = server.Run()
+	repo := repository.NewRepository(conn)
+
+	server := gin.Default()
+	server.Use(security.NewSecurity().AuthMiddleware)
+
+	resource.PersonResource(server, service.NewPersonService(repo))
+	resource.AuthResource(server, service.NewAuthService(repo))
+
+	err := server.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func createDbConnection() *pgx.Conn {
+	conn, err := pgx.Connect(context.Background(), getDBUrl())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return conn
 }
 
 func getDBUrl() string {

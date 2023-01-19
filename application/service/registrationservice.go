@@ -14,11 +14,11 @@ import (
 )
 
 type AuthService struct {
-	repository *repository.DBConnection
+	repository *repository.Repository
 }
 
-func (s *AuthService) SetRepo(r *repository.DBConnection) {
-	s.repository = r
+func NewAuthService(repository *repository.Repository) *AuthService {
+	return &AuthService{repository: repository}
 }
 
 func (s *AuthService) Login(c *gin.Context) {

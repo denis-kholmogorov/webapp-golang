@@ -10,12 +10,12 @@ import (
 )
 
 type PersonService struct {
-	repository *repository.DBConnection
+	repository *repository.Repository
 	person     domain.Person
 }
 
-func (s *PersonService) SetRepo(r *repository.DBConnection) {
-	s.repository = r
+func NewPersonService(repository *repository.Repository) *PersonService {
+	return &PersonService{repository: repository}
 }
 
 func (s *PersonService) GetById(c *gin.Context) {

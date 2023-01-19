@@ -1,12 +1,25 @@
 package main
 
-import (
-	"fmt"
-	"strings"
+import "fmt"
+
+type Weekday int
+
+const (
+	Monday Weekday = iota + 1
+	Tuesday
+	Wednesday
+	Thursday
+	Friday
+	Saturday
+	Sunday
 )
 
+func NextDay(day Weekday) Weekday {
+	return (day % 7) + 1
+}
+
 func main() {
-	rowtoken := "Bearer asdasdasdasd"
-	before := strings.TrimPrefix(rowtoken, "Bearer ")
-	fmt.Println(before)
+	//var today Weekday = Sunday
+	//tomorrow := NextDay(today)
+	fmt.Println("today =", Sunday, "tomorrow =", Monday)
 }

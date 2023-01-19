@@ -25,16 +25,20 @@ const ID = "id"
 const SELECT_EXISTS_ID = "select exists(select 1 from %s where id=%s)"
 const TABLE_NAME = "tableName"
 
-type DBConnection struct {
+type Repository struct {
 	connection *pgx.Conn
 }
 
-func (db *DBConnection) SetConnection(connection *pgx.Conn) {
-	db.connection = connection
+func NewRepository(connection *pgx.Conn) *Repository {
+	return &Repository{connection: connection}
 }
 
+//func (db *Repository) SetConn(connection *pgx.Conn) {
+//	db.connection = connection
+//}
+
 // FindById Find domain by id
-func (db *DBConnection) FindById(domainType interface{}, id string) (interface{}, error) {
+func (db *Repository) FindById(domainType interface{}, id string) (interface{}, error) {
 	tx, err := db.startTransaction()
 	if err != nil {
 		return nil, err
@@ -55,7 +59,7 @@ func (db *DBConnection) FindById(domainType interface{}, id string) (interface{}
 
 // TODO доделать
 // FindByFields Find domain by fields
-func (db *DBConnection) FindByFields(domainType interface{}, fields ...interface{}) (interface{}, error) {
+func (db *Repository) FindByFields(domainType interface{}, fields ...interface{}) (interface{}, error) {
 	tx, err := db.startTransaction()
 	if err != nil {
 		return nil, err
@@ -76,7 +80,7 @@ func (db *DBConnection) FindByFields(domainType interface{}, fields ...interface
 }
 
 // FindAll Find all domain
-func (db *DBConnection) FindAll(domainType interface{}) (interface{}, error) {
+func (db *Repository) FindAll(domainType interface{}) (interface{}, error) {
 
 	tx, err := db.startTransaction()
 	if err != nil {
@@ -94,7 +98,7 @@ func (db *DBConnection) FindAll(domainType interface{}) (interface{}, error) {
 }
 
 // FindAllFields Find all domain
-func (db *DBConnection) FindAllFields(domain interface{}, specification *Specification) (interface{}, error) {
+func (db *Repository) FindAllFields(domain interface{}, specification *Specification) (interface{}, error) {
 
 	tx, err := db.startTransaction()
 	if err != nil {
@@ -112,7 +116,7 @@ func (db *DBConnection) FindAllFields(domain interface{}, specification *Specifi
 }
 
 // Create new domain
-func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
+func (db *Repository) Create(domain interface{}) (interface{}, error) {
 	tx, err := db.startTransaction()
 	if err != nil {
 		return nil, err
@@ -142,7 +146,7 @@ func (db *DBConnection) Create(domain interface{}) (interface{}, error) {
 }
 
 // Update domain
-func (db *DBConnection) Update(domain interface{}) (interface{}, error) {
+func (db *Repository) Update(domain interface{}) (interface{}, error) {
 	tx, err := db.startTransaction()
 	defer tx.Rollback(context.Background())
 	id := getTypeId(domain)
@@ -160,7 +164,7 @@ func (db *DBConnection) Update(domain interface{}) (interface{}, error) {
 }
 
 // DeleteById delete domain by id
-func (db *DBConnection) DeleteById(domain interface{}, id string) (bool, error) {
+func (db *Repository) DeleteById(domain interface{}, id string) (bool, error) {
 	tx, err := db.startTransaction()
 	if err != nil {
 		return false, err
@@ -181,7 +185,7 @@ func (db *DBConnection) DeleteById(domain interface{}, id string) (bool, error) 
 	return true, nil
 }
 
-func (db *DBConnection) existRowById(domain interface{}) (bool, error) {
+func (db *Repository) existRowById(domain interface{}) (bool, error) {
 	id, table := "", ""
 	values, tags := reflect.ValueOf(domain), reflect.TypeOf(domain)
 	countFields := tags.NumField()
@@ -410,7 +414,7 @@ func setValue(field reflect.Value, value any) {
 	}
 }
 
-func (db *DBConnection) startTransaction() (pgx.Tx, error) {
+func (db *Repository) startTransaction() (pgx.Tx, error) {
 	tx, err := db.connection.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return nil, err
