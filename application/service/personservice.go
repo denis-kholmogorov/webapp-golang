@@ -6,21 +6,27 @@ import (
 	"log"
 	"net/http"
 	"web/application/domain"
+	"web/application/kafka"
 	"web/application/repository"
 )
 
 type PersonService struct {
-	repository *repository.Repository
-	person     domain.Person
+	repository  *repository.Repository
+	kafkaSender *kafkasender.KafkaSender
+	person      domain.Person
 }
 
 func NewPersonService(repository *repository.Repository) *PersonService {
-	return &PersonService{repository: repository}
+	return &PersonService{
+		repository:  repository,
+		kafkaSender: kafkasender.NewKafkaSender(),
+	}
 }
 
 func (s *PersonService) GetById(c *gin.Context) {
 	id := c.Param("id")
 	domainPerson, err := s.repository.FindById(s.person, id)
+	s.kafkaSender.SendMessage(domainPerson)
 	if err != nil {
 		log.Printf(err.Error())
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))

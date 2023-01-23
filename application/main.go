@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	kafkaweb "web/application/kafka"
 	"web/application/repository"
 	"web/application/resource"
 	"web/application/security"
@@ -36,6 +37,7 @@ func main() {
 	resource.PersonResource(server, service.NewPersonService(repo))
 	resource.AuthResource(server, service.NewAuthService(repo))
 
+	go kafkaweb.Consume(context.Background())
 	err := server.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)

@@ -49,7 +49,9 @@ func (conf *Security) hasPathInWhiteList(ctx *gin.Context) bool {
 			log.Printf("SecurityConfig: Match whitelist throw exception %s", err)
 			return false
 		}
-		return match
+		if match {
+			return match
+		}
 	}
 	return false
 }
