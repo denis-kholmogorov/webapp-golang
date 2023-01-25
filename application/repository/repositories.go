@@ -25,17 +25,20 @@ const ID = "id"
 const SELECT_EXISTS_ID = "select exists(select 1 from %s where id=%s)"
 const TABLE_NAME = "tableName"
 
+var repo *Repository
+var isInitialized bool
+
 type Repository struct {
 	connection *pgx.Conn
 }
 
-func NewRepository(connection *pgx.Conn) *Repository {
-	return &Repository{connection: connection}
+func NewRepository(connection *pgx.Conn) {
+	repo = &Repository{connection: connection}
 }
 
-//func (db *Repository) SetConn(connection *pgx.Conn) {
-//	db.connection = connection
-//}
+func GetRepository() *Repository {
+	return repo
+}
 
 // FindById Find domain by id
 func (db *Repository) FindById(domainType interface{}, id string) (interface{}, error) {
@@ -50,7 +53,7 @@ func (db *Repository) FindById(domainType interface{}, id string) (interface{}, 
 	}
 	defer rows.Close()
 
-	domains := *fetchRows(rows, domainType)
+	domains := fetchRows(rows, domainType)
 	if len(domains) == 0 {
 		return nil, nil
 	}
@@ -72,7 +75,7 @@ func (db *Repository) FindByFields(domainType interface{}, fields ...interface{}
 	}
 	defer rows.Close()
 
-	domains := *fetchRows(rows, domainType)
+	domains := fetchRows(rows, domainType)
 	if len(domains) == 0 {
 		return nil, nil
 	}
@@ -93,7 +96,7 @@ func (db *Repository) FindAll(domainType interface{}) (interface{}, error) {
 	}
 	defer rows.Close()
 
-	domains := *fetchRows(rows, domainType)
+	domains := fetchRows(rows, domainType)
 	return domains, nil
 }
 
@@ -111,7 +114,7 @@ func (db *Repository) FindAllFields(domain interface{}, specification *Specifica
 	}
 	defer rows.Close()
 
-	domains := *fetchRows(rows, domain)
+	domains := fetchRows(rows, domain)
 	return domains, nil
 }
 
@@ -142,7 +145,7 @@ func (db *Repository) Create(domain interface{}) (interface{}, error) {
 		log.Printf("Error commit transaction insert %s", err)
 		return nil, err
 	}
-	return &id, err
+	return id, err
 }
 
 // Update domain
@@ -203,6 +206,7 @@ func (db *Repository) existRowById(domain interface{}) (bool, error) {
 		}
 	}
 	query := fmt.Sprintf(SELECT_EXISTS_ID, table, id)
+	fmt.Println(query)
 	rows, err := db.connection.Query(context.Background(), query)
 	defer rows.Close()
 
@@ -370,7 +374,7 @@ func fieldToString(value reflect.Value, tag reflect.StructField) string {
 	return ""
 }
 
-func fetchRows(rows pgx.Rows, domainType interface{}) *[]interface{} {
+func fetchRows(rows pgx.Rows, domainType interface{}) []interface{} {
 	var domains []interface{}
 	for rows.Next() {
 		data, _ := rows.Values()
@@ -388,7 +392,7 @@ func fetchRows(rows pgx.Rows, domainType interface{}) *[]interface{} {
 		}
 		domains = append(domains, domain.Interface())
 	}
-	return &domains
+	return domains
 }
 
 func setValue(field reflect.Value, value any) {

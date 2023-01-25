@@ -10,20 +10,20 @@ import (
 	"web/application/repository"
 )
 
-type PersonService struct {
+type AccountService struct {
 	repository  *repository.Repository
 	kafkaSender *kafkasender.KafkaSender
-	person      domain.Person
+	person      domain.Account
 }
 
-func NewPersonService(repository *repository.Repository) *PersonService {
-	return &PersonService{
-		repository:  repository,
+func NewPersonService() *AccountService {
+	return &AccountService{
+		repository:  repository.GetRepository(),
 		kafkaSender: kafkasender.NewKafkaSender(),
 	}
 }
 
-func (s *PersonService) GetById(c *gin.Context) {
+func (s *AccountService) GetById(c *gin.Context) {
 	id := c.Param("id")
 	domainPerson, err := s.repository.FindById(s.person, id)
 	s.kafkaSender.SendMessage(domainPerson)
@@ -35,8 +35,8 @@ func (s *PersonService) GetById(c *gin.Context) {
 	}
 }
 
-func (s *PersonService) GetAllFields(c *gin.Context) {
-	person := domain.Person{}
+func (s *AccountService) GetAllFields(c *gin.Context) {
+	person := domain.Account{}
 	personSearch := domain.PersonSearchDto{}
 	bindQuery(c, &personSearch)
 	spec := repository.SpecBuilder().
@@ -54,8 +54,8 @@ func (s *PersonService) GetAllFields(c *gin.Context) {
 	}
 }
 
-func (s *PersonService) GetAll(c *gin.Context) {
-	person := domain.Person{}
+func (s *AccountService) GetAll(c *gin.Context) {
+	person := domain.Account{}
 	id := c.Param("id")
 	domainPerson, err := s.repository.FindAll(person)
 	if err != nil {
@@ -66,8 +66,8 @@ func (s *PersonService) GetAll(c *gin.Context) {
 	}
 }
 
-func (s *PersonService) Create(c *gin.Context) {
-	person := domain.Person{}
+func (s *AccountService) Create(c *gin.Context) {
+	person := domain.Account{}
 	bindJson(c, &person)
 	log.Printf("Create new person %v", person)
 	id, err := s.repository.Create(person)
@@ -79,8 +79,8 @@ func (s *PersonService) Create(c *gin.Context) {
 	}
 }
 
-func (s *PersonService) Update(c *gin.Context) {
-	var person domain.Person
+func (s *AccountService) Update(c *gin.Context) {
+	var person domain.Account
 	bindJson(c, &person)
 	log.Printf("Update person %v", person)
 	id, err := s.repository.Update(person)
@@ -91,8 +91,8 @@ func (s *PersonService) Update(c *gin.Context) {
 	}
 }
 
-func (s *PersonService) DeleteById(c *gin.Context) {
-	var person domain.Person
+func (s *AccountService) DeleteById(c *gin.Context) {
+	var person domain.Account
 	id := c.Param("id")
 	_, err := s.repository.DeleteById(person, id)
 	if err != nil {

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
+	"log"
 	"sync"
+	"web/application/domain"
 )
 
 const (
@@ -14,7 +16,7 @@ const (
 	broker1Address = "localhost:9092"
 )
 
-var kafkaStruct KafkaSender
+var sender KafkaSender
 var isInitialized bool
 
 type KafkaSender struct {
@@ -30,11 +32,11 @@ func NewKafkaSender() *KafkaSender {
 			Topic:        topic,
 			RequiredAcks: kafka.RequireAll,
 		}
-		kafkaStruct = KafkaSender{kafkaWriter: &kafkaWriter}
+		sender = KafkaSender{kafkaWriter: &kafkaWriter}
 		isInitialized = true
 	}
 	mt.Unlock()
-	return &kafkaStruct
+	return &sender
 }
 
 func (k *KafkaSender) SendMessage(messages ...any) {
@@ -50,13 +52,11 @@ func (k *KafkaSender) SendMessage(messages ...any) {
 		if err != nil {
 			panic("could not write message " + err.Error())
 		}
-
-		// log a confirmation once the message is written
-		fmt.Println("writes:", marshal)
+		fmt.Println("writes:", string(marshal))
 	}
 }
 
-func Consume(ctx context.Context) {
+func Consume1(ctx context.Context) {
 	// initialize a new reader with the brokers and topic
 	// the groupID identifies the consumer and prevents
 	// it from receiving duplicate messages
@@ -72,6 +72,41 @@ func Consume(ctx context.Context) {
 			panic("could not read message " + err.Error())
 		}
 		// after receiving the message, log its value
-		fmt.Println("received: ", string(msg.Value))
+
+		person := domain.Account{}
+		err = json.Unmarshal(msg.Value, &person)
+		if err != nil {
+			log.Println("Kafka can't read message")
+		}
+
+		fmt.Println("received consumer 1: ", person)
+		fmt.Println("received consumer 1 message : {", "msg.Partition", msg.Partition, "msg.Key", string(msg.Key), "msg.Offset:", msg.Offset, "msg.HighWaterMark:", msg.HighWaterMark, "msg.Topic:", msg.Topic, "msg.Headers", msg.Headers, "}")
+	}
+}
+
+func Consume2(ctx context.Context) {
+	// initialize a new reader with the brokers and topic
+	// the groupID identifies the consumer and prevents
+	// it from receiving duplicate messages
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{broker1Address},
+		Topic:   topic,
+		GroupID: "my-group",
+	})
+	for {
+		// the `ReadMessage` method blocks until we receive the next event
+		msg, err := r.ReadMessage(ctx)
+		if err != nil {
+			panic("could not read message " + err.Error())
+		}
+		// after receiving the message, log its value
+
+		person := domain.Account{}
+		err = json.Unmarshal(msg.Value, &person)
+		if err != nil {
+			log.Println("Kafka can't read message")
+		}
+		fmt.Println("received consumer 2: ", person)
+		fmt.Println("received consumer 2 message : {", "msg.Partition", msg.Partition, "msg.Key", string(msg.Key), "msg.Offset:", msg.Offset, "msg.HighWaterMark:", msg.HighWaterMark, "msg.Topic:", msg.Topic, "msg.Headers", msg.Headers, "}")
 	}
 }

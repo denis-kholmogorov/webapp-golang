@@ -26,7 +26,8 @@ func NewSecurity() *Security {
 }
 
 func (conf *Security) AuthMiddleware(ctx *gin.Context) {
-	if !conf.hasPathInWhiteList(ctx) {
+	//if !conf.hasPathInWhiteList(ctx) { TODO убрать
+	if false {
 		if ctx.Request.Header["Authorization"] != nil {
 			rowToken := ctx.Request.Header["Authorization"][0]
 			token, err := parseToken(rowToken)

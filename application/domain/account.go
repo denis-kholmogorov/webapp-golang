@@ -2,8 +2,8 @@ package domain
 
 import "time"
 
-type Person struct {
-	tableName struct{}  `pg:"public.person"`
+type Account struct {
+	tableName struct{}  `pg:"public.account"`
 	Id        int64     `json:"id" pg:"id"`
 	Age       int64     `json:"age" pg:"age"`
 	FirstName string    `json:"firstName" pg:"first_name"`

@@ -6,6 +6,8 @@ import (
 )
 
 func AuthResource(e *gin.Engine, service *service.AuthService) {
-	e.POST("/login", service.Login)
+	e.GET("api/v1/auth/captcha", service.Captcha)
+	e.POST("api/v1/auth/register", service.Registration)
+	e.POST("api/v1/auth/login", service.Login)
 
 }

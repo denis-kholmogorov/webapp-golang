@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Weekday int
 
@@ -22,4 +25,7 @@ func main() {
 	//var today Weekday = Sunday
 	//tomorrow := NextDay(today)
 	fmt.Println("today =", Sunday, "tomorrow =", Monday)
+	capd := time.Now()
+	after := time.Time{}.Before(capd.Add(time.Minute * 2))
+	fmt.Println(after)
 }

@@ -15,10 +15,11 @@ import (
 	"web/application/service"
 )
 
-// TODO использовать в репозиториях дженерики
-type ApplicationContext struct {
-}
+var dbConnection *pgx.Conn
 
+func GetDBConn() *pgx.Conn {
+	return dbConnection
+}
 func init() {
 	// loads values from .env into the system
 	if err := godotenv.Load("application/.env"); err != nil {
@@ -27,17 +28,18 @@ func init() {
 }
 
 func main() {
-	conn := createDbConnection()
-	defer conn.Close(context.Background())
-	repo := repository.NewRepository(conn)
+	dbConnection := createDbConnection()
+	defer dbConnection.Close(context.Background())
+	repository.NewRepository(dbConnection)
 
 	server := gin.Default()
 	server.Use(security.NewSecurity().AuthMiddleware)
 
-	resource.PersonResource(server, service.NewPersonService(repo))
-	resource.AuthResource(server, service.NewAuthService(repo))
+	resource.AccountResource(server, service.NewPersonService())
+	resource.AuthResource(server, service.NewAuthService())
 
-	go kafkaweb.Consume(context.Background())
+	go kafkaweb.Consume1(context.Background())
+	go kafkaweb.Consume2(context.Background())
 	err := server.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
