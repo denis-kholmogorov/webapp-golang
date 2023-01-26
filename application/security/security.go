@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -27,19 +28,19 @@ func NewSecurity() *Security {
 
 func (conf *Security) AuthMiddleware(ctx *gin.Context) {
 	if !conf.hasPathInWhiteList(ctx) {
-		if false {
-			if ctx.Request.Header["Authorization"] != nil {
-				rowToken := ctx.Request.Header["Authorization"][0]
-				token, err := parseToken(rowToken)
-				if err != nil {
-					ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
-				}
-				addValuesToContext(ctx, token)
-			} else {
-				ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
+
+		if ctx.Request.Header["Authorization"] != nil {
+			rowToken := ctx.Request.Header["Authorization"][0]
+			token, err := parseToken(rowToken)
+			if err != nil {
+				ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
 			}
+			addValuesToContext(ctx, token)
+		} else {
+			ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
 		}
 	}
+
 }
 
 func (conf *Security) hasPathInWhiteList(ctx *gin.Context) bool {
@@ -72,7 +73,7 @@ func parseToken(rowToken string) (*jwt.Token, error) {
 func addValuesToContext(ctx *gin.Context, token *jwt.Token) {
 	claims := token.Claims.(jwt.MapClaims)
 	fmt.Println(claims)
-	ctx.Set("id", claims["id"])
+	ctx.Set("id", strconv.FormatFloat(claims["id"].(float64), 'G', -1, 64))
 	ctx.Set("firstname", claims["firstName"])
 	ctx.Set("lastname", claims["lastName"])
 }

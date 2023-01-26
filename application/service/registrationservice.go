@@ -45,18 +45,20 @@ func (s *AuthService) Registration(c *gin.Context) {
 	capd, err := s.captchaRepo.FindById(&domain.Captcha{}, reg.CaptchaSecret)
 	if err != nil || capd.CaptchaCode != reg.CaptchaCode || time.Now().After(capd.ExpiredTime.Add(time.Minute*10)) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Captcha failed"))
+		return
 	}
 	hashPass, err := bcrypt.GenerateFromPassword([]byte(reg.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Password incorrect"))
+		return
 	}
 	account := s.mapper.RegistrationToAccount(reg, hashPass)
-	domain, err := s.repository.Create(account)
+	entity, err := s.repository.Create(account)
 	switch {
 	case err != nil:
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with not found"))
 	default:
-		c.JSON(http.StatusCreated, domain)
+		c.JSON(http.StatusCreated, entity)
 	}
 }
 

@@ -27,6 +27,7 @@ const TABLE_NAME = "tableName"
 
 var repo *Repository
 var isInitialized bool
+var timeType time.Time
 
 type Repository struct {
 	connection *pgx.Conn
@@ -303,6 +304,8 @@ func getTypeId(domain interface{}) interface{} {
 				return val.Field(i).Int()
 			case reflect.String:
 				return fmt.Sprintf("'%s'", val.Field(i).String())
+			case reflect.Bool:
+				return val.Field(i).Bool()
 			default:
 				return fmt.Sprintf("'%s'", val.Field(i).String())
 			}
@@ -361,11 +364,13 @@ func fieldToString(value reflect.Value, tag reflect.StructField) string {
 	switch value.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.Itoa(int(value.Int()))
+	case reflect.Bool:
+		return strconv.FormatBool(value.Bool())
 	case reflect.String:
 		return fmt.Sprintf("'%s'", value.String())
 	case reflect.Struct:
 		switch value.Type() {
-		case reflect.TypeOf(time.Time{}):
+		case reflect.TypeOf(timeType):
 			return fmt.Sprintf("'%s'", value.Interface().(time.Time).Format(tag.Tag.Get("time_format")))
 		}
 	default:

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"math/big"
+	"log"
+	"strconv"
 )
 
 type Weekday int
@@ -24,6 +24,7 @@ func NextDay(day Weekday) Weekday {
 func main() {
 	//var today Weekday = Sunday
 	//tomorrow := NextDay(today)
-	b := big.NewInt(1)
-	fmt.Println(b)
+	var f float64 = 1.2654
+	float := strconv.FormatFloat(f, 'G', -1, 64)
+	log.Println("F = " + float)
 }

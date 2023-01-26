@@ -28,15 +28,7 @@ func init() {
 	if err := godotenv.Load("application/.env"); err != nil {
 		log.Println("No .env file found")
 	}
-	m, err := migrate.New(
-		"file://application/db/migrations",
-		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable&search_path=public")
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := m.Up(); err != nil {
-		log.Fatal(err)
-	}
+	startDbMigrate()
 }
 
 func main() {
@@ -73,4 +65,47 @@ func getDBUrl() string {
 		url = "postgres://postgres:postgres@localhost:5432/postgres"
 	}
 	return url
+}
+
+func startDbMigrate() {
+	url, exists := os.LookupEnv("DB_URL")
+	if !exists {
+		url = "postgres://postgres:postgres@localhost:5432/postgres"
+	}
+	urlParams, exists := os.LookupEnv("DB_URL_PARAMS")
+	if !exists {
+		urlParams = "?sslmode=disable&search_path=public"
+	}
+	sourceMigratePath, exists := os.LookupEnv("SOURCE_MIGRATE_PATH")
+	if !exists {
+		urlParams = "file://application/db/migrations"
+	}
+
+	enableMigrate, ok := os.LookupEnv("ENABLE_MIGRATE")
+	if !ok {
+		log.Println("MIGRATE: Env ENABLE_MIGRATE not found ")
+		return
+	}
+	dropFirst, ok := os.LookupEnv("DROP_FIRST")
+	if !ok {
+		log.Println("MIGRATE: Env DROP_FIRST not found ")
+		return
+	}
+
+	m, err := migrate.New(sourceMigratePath, url+urlParams)
+	if err != nil {
+		log.Fatalf("MIGRATE: Error initialize migrate%s", err)
+	}
+
+	if dropFirst == "true" {
+		if err := m.Down(); err != nil {
+			log.Fatalf("MIGRATE: Drop first for migrate %s", err)
+		}
+	}
+	if enableMigrate == "true" {
+		if err := m.Up(); err != nil {
+			log.Fatalf("MIGRATE: Enable migrate %s", err)
+		}
+	}
+	log.Println("MIGRATE: Migration was successful")
 }

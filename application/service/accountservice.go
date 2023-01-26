@@ -27,7 +27,18 @@ func NewAccountService() *AccountService {
 
 func (s *AccountService) GetById(c *gin.Context) {
 	id := c.Param("id")
-	domainPerson, err := s.accountRepository.FindById("11")
+	domainPerson, err := s.accountRepository.FindById(id)
+	if err != nil {
+		log.Printf(err.Error())
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+	} else {
+		c.JSON(http.StatusOK, domainPerson)
+	}
+}
+
+func (s *AccountService) GetMe(c *gin.Context) {
+	id, _ := c.Get("id")
+	domainPerson, err := s.accountRepository.FindById(id.(string))
 	if err != nil {
 		log.Printf(err.Error())
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
@@ -66,10 +77,10 @@ func (s *AccountService) GetAll(c *gin.Context) {
 }
 
 func (s *AccountService) Create(c *gin.Context) {
-	person := domain.Account{}
-	bindJson(c, &person)
-	log.Printf("Create new person %v", person)
-	id, err := s.repository.Create(person)
+	account := domain.Account{}
+	bindJson(c, &account)
+	log.Printf("Create new account %v", account)
+	id, err := s.repository.Create(account)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)

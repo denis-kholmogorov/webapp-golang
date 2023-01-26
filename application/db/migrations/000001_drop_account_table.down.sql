@@ -1,3 +1,3 @@
-DROP table if exists public.person;
+DROP table if exists public.account;
 
 
