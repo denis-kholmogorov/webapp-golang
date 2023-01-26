@@ -37,7 +37,7 @@ func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPas
 		LastName:  regDto.LastName,
 		Email:     regDto.Email,
 		Password:  string(hashPass),
-		Birthday:  time.Time{},
+		BirthDate: time.Time{},
 	}
 
 }

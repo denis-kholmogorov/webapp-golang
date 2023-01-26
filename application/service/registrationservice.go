@@ -11,7 +11,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"os"
-	"reflect"
 	"strconv"
 	"time"
 	"web/application/domain"
@@ -21,6 +20,8 @@ import (
 )
 
 type AuthService struct {
+	captchaRepo  *repository.CaptchaRepository[*domain.Captcha, string]
+	accountRepo  *repository.AccountRepository[*domain.Account, string]
 	repository   *repository.Repository
 	mapper       *mapper.PersonMapper
 	captchaStore *captcha.Store
@@ -29,6 +30,8 @@ type AuthService struct {
 func NewAuthService() *AuthService {
 	store := captcha.NewMemoryStore(100, time.Minute*2)
 	return &AuthService{
+		captchaRepo:  repository.GetCaptchaRepository(),
+		accountRepo:  repository.GetAccountRepository(),
 		repository:   repository.GetRepository(),
 		mapper:       mapper.GetPersonMapper(),
 		captchaStore: &store,
@@ -39,45 +42,39 @@ func (s *AuthService) Registration(c *gin.Context) {
 	reg := dto.RegistrationDto{}
 	c.BindJSON(&reg)
 
-	cap, err := s.repository.FindById(domain.Captcha{}, reg.CaptchaSecret)
-	if err != nil || cap == nil {
+	capd, err := s.captchaRepo.FindById(&domain.Captcha{}, reg.CaptchaSecret)
+	if err != nil || capd.CaptchaCode != reg.CaptchaCode || time.Now().After(capd.ExpiredTime.Add(time.Minute*10)) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Captcha failed"))
 	}
-
-	capa := reflect.ValueOf(cap).Interface()
-	capd := capa.(*domain.Captcha)
-	if capd.CaptchaCode != reg.CaptchaCode || time.Now().After(capd.ExpiredTime.Add(time.Minute*10)) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Captcha failed"))
-	}
-
 	hashPass, err := bcrypt.GenerateFromPassword([]byte(reg.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Password incorrect"))
-		return
 	}
 	account := s.mapper.RegistrationToAccount(reg, hashPass)
-	//domain, err := s.repository.Create(account)
+	domain, err := s.repository.Create(account)
 	switch {
 	case err != nil:
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with not found"))
 	default:
-		//c.JSON(http.StatusCreated, domain)
-		c.JSON(http.StatusCreated, account)
+		c.JSON(http.StatusCreated, domain)
 	}
 }
 
 func (s *AuthService) Login(c *gin.Context) {
 	login := domain.LoginDto{}
-	person := domain.Account{}
 	c.BindJSON(&login)
-	domainPerson, err := s.repository.FindByFields(person, login.Email)
+	spec := repository.SpecBuilder().Equals(login.Email, "email")
+	accounts, err := s.accountRepo.FindAllBySpec(spec)
+	if len(accounts) != 1 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, "Account not found")
+		return
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(accounts[0].Password), []byte(login.Password))
 	switch {
 	case err != nil:
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", login.Email))
-	case domainPerson.(*domain.Account).Password != login.Password:
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Password not matcher"))
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Error %s", err))
 	default:
-		loginResponse, err := createJwtToken(domainPerson)
+		loginResponse, err := createJwtToken(accounts[0])
 		if err != nil {
 			c.JSON(http.StatusBadRequest, err)
 		}
@@ -110,27 +107,32 @@ func (s *AuthService) Captcha(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.CaptchaDto{Secret: ids, Image: s3})
 }
 
-func createJwtToken(p interface{}) (*domain.LoginResponse, error) {
-	person := p.(*domain.Account)
+func (s *AuthService) Logout(c *gin.Context) {
+	c.JSON(http.StatusOK, "")
+}
 
+func createJwtToken(account *domain.Account) (*domain.LoginResponse, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	claims := token.Claims.(jwt.MapClaims)
 	claims["exp"] = json.Number(strconv.FormatInt(time.Now().Add(100*time.Minute).Unix(), 10))
 	claims["authorized"] = true
-	claims["id"] = person.Id
-	claims["age"] = person.Age
-	claims["firstName"] = person.FirstName
-	claims["lastName"] = person.LastName
-	claims["email"] = person.Email
-	claims["birthday"] = person.Birthday
+	claims["id"] = account.Id
+	claims["age"] = account.Age
+	claims["firstName"] = account.FirstName
+	claims["lastName"] = account.LastName
+	claims["email"] = account.Email
+	claims["birthday"] = account.BirthDate
 	env, ok := os.LookupEnv("SECRET_KEY")
 	if ok {
 		signedString, err := token.SignedString([]byte(env))
 		if err != nil {
 			return nil, err
 		}
-		return &domain.LoginResponse{JwtToken: signedString}, err
+		return &domain.LoginResponse{
+			AccessToken:  signedString,
+			RefreshToken: signedString,
+		}, err
 	} else {
 		return nil, fmt.Errorf("not value for signed key")
 	}

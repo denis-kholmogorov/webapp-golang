@@ -62,14 +62,14 @@ func (db *Repository) FindById(domainType interface{}, id string) (interface{}, 
 
 // TODO доделать
 // FindByFields Find domain by fields
-func (db *Repository) FindByFields(domainType interface{}, fields ...interface{}) (interface{}, error) {
+func (db *Repository) FindByEmail(domainType interface{}, email string) (interface{}, error) {
 	tx, err := db.startTransaction()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(context.Background())
-	fmt.Println(fmt.Sprintf("%s * %s public.person WHERE 'email'=%s;", SELECT_, FROM, fields[0]))
-	rows, err := db.connection.Query(context.Background(), fmt.Sprintf("%s * %s public.person WHERE email = '%s';", SELECT_, FROM, fields[0]))
+	fmt.Println(fmt.Sprintf("%s * %s public.person WHERE 'email'=%s;", SELECT_, FROM, email))
+	rows, err := db.connection.Query(context.Background(), fmt.Sprintf("%s * %s public.person WHERE email = '%s';", SELECT_, FROM, email))
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (db *Repository) FindByFields(domainType interface{}, fields ...interface{}
 }
 
 // FindAll Find all domain
-func (db *Repository) FindAll(domainType interface{}) (interface{}, error) {
+func (db *Repository) FindAll(domainType interface{}) ([]interface{}, error) {
 
 	tx, err := db.startTransaction()
 	if err != nil {
@@ -100,8 +100,8 @@ func (db *Repository) FindAll(domainType interface{}) (interface{}, error) {
 	return domains, nil
 }
 
-// FindAllFields Find all domain
-func (db *Repository) FindAllFields(domain interface{}, specification *Specification) (interface{}, error) {
+// FindAllBySpec Find all domain
+func (db *Repository) FindAllBySpec(domain interface{}, specification *Specification) ([]interface{}, error) {
 
 	tx, err := db.startTransaction()
 	if err != nil {

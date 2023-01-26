@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"log"
@@ -25,6 +28,15 @@ func init() {
 	if err := godotenv.Load("application/.env"); err != nil {
 		log.Println("No .env file found")
 	}
+	m, err := migrate.New(
+		"file://application/db/migrations",
+		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable&search_path=public")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := m.Up(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main() {
@@ -35,7 +47,7 @@ func main() {
 	server := gin.Default()
 	server.Use(security.NewSecurity().AuthMiddleware)
 
-	resource.AccountResource(server, service.NewPersonService())
+	resource.AccountResource(server, service.NewAccountService())
 	resource.AuthResource(server, service.NewAuthService())
 
 	go kafkaweb.Consume1(context.Background())

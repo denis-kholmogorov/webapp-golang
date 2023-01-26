@@ -26,18 +26,18 @@ func NewSecurity() *Security {
 }
 
 func (conf *Security) AuthMiddleware(ctx *gin.Context) {
-	//if !conf.hasPathInWhiteList(ctx) { TODO убрать
-	if false {
-		if ctx.Request.Header["Authorization"] != nil {
-			rowToken := ctx.Request.Header["Authorization"][0]
-			token, err := parseToken(rowToken)
-			if err != nil {
-				ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
+	if !conf.hasPathInWhiteList(ctx) {
+		if false {
+			if ctx.Request.Header["Authorization"] != nil {
+				rowToken := ctx.Request.Header["Authorization"][0]
+				token, err := parseToken(rowToken)
+				if err != nil {
+					ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
+				}
+				addValuesToContext(ctx, token)
+			} else {
+				ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
 			}
-			addValuesToContext(ctx, token)
-
-		} else {
-			ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
 		}
 	}
 }

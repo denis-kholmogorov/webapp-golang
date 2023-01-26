@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"math/big"
 )
 
 type Weekday int
@@ -24,8 +24,6 @@ func NextDay(day Weekday) Weekday {
 func main() {
 	//var today Weekday = Sunday
 	//tomorrow := NextDay(today)
-	fmt.Println("today =", Sunday, "tomorrow =", Monday)
-	capd := time.Now()
-	after := time.Time{}.Before(capd.Add(time.Minute * 2))
-	fmt.Println(after)
+	b := big.NewInt(1)
+	fmt.Println(b)
 }
