@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"log"
-	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -27,19 +26,19 @@ func NewSecurity() *Security {
 }
 
 func (conf *Security) AuthMiddleware(ctx *gin.Context) {
-	if !conf.hasPathInWhiteList(ctx) {
+	//if !conf.hasPathInWhiteList(ctx) {
 
-		if ctx.Request.Header["Authorization"] != nil {
-			rowToken := ctx.Request.Header["Authorization"][0]
-			token, err := parseToken(rowToken)
-			if err != nil {
-				ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
-			}
-			addValuesToContext(ctx, token)
-		} else {
-			ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
-		}
-	}
+	//if ctx.Request.Header["Authorization"] != nil {
+	//	rowToken := ctx.Request.Header["Authorization"][0]
+	//	token, err := parseToken(rowToken)
+	//	if err != nil {
+	//		ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
+	//	}
+	//	addValuesToContext(ctx, token)
+	//} else {
+	//	ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
+	//}
+	//}
 
 }
 

@@ -1,7 +1,7 @@
 package mapper
 
 import (
-	"time"
+	"fmt"
 	"web/application/domain"
 	"web/application/dto"
 )
@@ -31,13 +31,14 @@ func (p *PersonMapper) toEntity(person any) any {
 	return person
 }
 
-func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPass []byte) domain.Account {
-	return domain.Account{
+func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPass []byte) *domain.Account {
+	return &domain.Account{
+		Uid:       fmt.Sprintf("_:%s", regDto.Email),
 		FirstName: regDto.FirstName,
 		LastName:  regDto.LastName,
 		Email:     regDto.Email,
 		Password:  string(hashPass),
-		BirthDate: time.Time{},
+		DType:     []string{"Account"},
 	}
 
 }

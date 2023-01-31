@@ -1,30 +1,81 @@
 package repository
 
 import (
-	"reflect"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/dgraph-io/dgo/v210"
+	"github.com/dgraph-io/dgo/v210/protos/api"
+	"log"
 	"web/application/domain"
 )
 
-var captchaRepo *CaptchaRepository[*domain.Captcha, string]
+var captchaRepo *CaptchaRepository
 var isInitializedCaptchaRepo bool
 
-type CaptchaRepository[Entity *domain.Captcha, Id string] struct {
-	repository *Repository
+type CaptchaRepository struct {
+	conn *dgo.Dgraph
 }
 
-func GetCaptchaRepository() *CaptchaRepository[*domain.Captcha, string] {
+func GetCaptchaRepository() *CaptchaRepository {
 	if !isInitializedCaptchaRepo {
-		captchaRepo = &CaptchaRepository[*domain.Captcha, string]{}
-		captchaRepo.repository = GetRepository()
+		captchaRepo = &CaptchaRepository{}
+		captchaRepo.conn = GetDGraphConn().connection
 		isInitializedCaptchaRepo = true
 	}
 	return captchaRepo
 }
 
-func (rc *CaptchaRepository[Entity, Id]) FindById(domainType Entity, id Id) (Entity, error) {
-	c, err := rc.repository.FindById(*domainType, string(id))
-	if err != nil || c == nil {
-		return nil, err
+func (r CaptchaRepository) FindById(captchaId string) (*domain.Captcha, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	query := fmt.Sprintf(getById, captchaId)
+	vars, err := txn.Query(ctx, query)
+	if err != nil {
+		log.Printf("CaptchaRepository:FindById() Error query %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:FindById() Error query %s", err)
 	}
-	return reflect.ValueOf(c).Interface().(Entity), nil
+
+	captchaList := domain.CaptchaList{}
+
+	err = json.Unmarshal(vars.Json, &captchaList)
+
+	if err != nil {
+		log.Printf("CaptchaRepository:FindById() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:FindById() Error Unmarshal %s", err)
+	}
+
+	if len(captchaList.List) != 1 {
+		log.Printf("CaptchaRepository:FindById() Captha found more then one %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:FindById() Captha found more then one %s", err)
+	}
+	return &captchaList.List[0], nil
 }
+
+func (r CaptchaRepository) Save(captcha *domain.Captcha) (*string, error) {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	captcham, err := json.Marshal(captcha)
+	if err != nil {
+		log.Printf("CaptchaRepository:save() Error marhalling captcha %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:Save() Error marhalling captcha %s", err)
+	}
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: captcham, CommitNow: true})
+	if err != nil {
+		log.Printf("CaptchaRepository:save() Error mutate %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:Save() Error mutate %s", err)
+	}
+	captchaId := mutate.Uids[captcha.CaptchaCode]
+	if len(captchaId) == 0 {
+		log.Printf("CaptchaRepository:save() capthcaId not found")
+		return nil, fmt.Errorf("CaptchaRepository:Save() capthcaId not found")
+	}
+	return &captchaId, nil
+}
+
+var getById = `{ captchaList (func: uid(%s)) {
+uid
+captchaCode 
+expiredTime
+}
+}`
