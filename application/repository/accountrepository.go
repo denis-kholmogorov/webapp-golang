@@ -46,3 +46,78 @@ func (r AccountRepository) Save(account *domain.Account) (*string, error) {
 	}
 	return &accountId, nil
 }
+
+func (r AccountRepository) FindByEmail(email string) ([]domain.Account, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	query := fmt.Sprintf(existEmail, email)
+	vars, err := txn.Query(ctx, query)
+	if err != nil {
+		log.Printf("AccountRepository:existsEmail() Error query %s", err)
+		return nil, fmt.Errorf("AccountRepository:existsEmail() Error query %s", err)
+	}
+	response := struct {
+		Accounts []domain.Account `json:"accounts"`
+	}{}
+	err = json.Unmarshal(vars.Json, &response)
+
+	if err != nil {
+		log.Printf("AccountRepository:FindById() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("AccountRepository:existsEmail() Error Unmarshal %s", err)
+	}
+	return response.Accounts, nil
+
+}
+
+func (r AccountRepository) FindById(id string) (*domain.Account, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	query := fmt.Sprintf(findById, id)
+	vars, err := txn.Query(ctx, query)
+	if err != nil {
+		log.Printf("AccountRepository:existsEmail() Error query %s", err)
+		return nil, fmt.Errorf("AccountRepository:existsEmail() Error query %s", err)
+	}
+	response := struct {
+		Accounts []domain.Account `json:"account"`
+	}{}
+	err = json.Unmarshal(vars.Json, &response)
+
+	if err != nil || len(response.Accounts) != 1 {
+		log.Printf("AccountRepository:FindById() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("AccountRepository:existsEmail() Error Unmarshal %s", err)
+	}
+
+	return &response.Accounts[0], nil
+
+}
+
+var existEmail = `{ accounts (func: eq(email, "%s")) {
+		uid
+		firstName
+		lastName
+		email
+		password
+	}
+}`
+
+var findById = `{ account (func: uid("%s")) {
+		uid
+		email
+		firstName
+		lastName
+		age
+		isDeleted
+		isBlocked
+		isOnline
+		phone
+		photo
+		photoId
+		photoName
+		about
+		city
+		country
+		birthDate
+		lastOnlineTime
+	}
+}`

@@ -33,10 +33,10 @@ func main() {
 	server := gin.Default()
 	server.Use(security.NewSecurity().AuthMiddleware)
 
-	//resource.AccountResource(server, service.NewAccountService())
+	resource.AccountResource(server, service.NewAccountService())
 	resource.AuthResource(server, service.NewAuthService())
 
-	err := server.Run(":8081")
+	err := server.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)

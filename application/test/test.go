@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"strconv"
+	"time"
 )
 
 type Weekday int
@@ -24,7 +24,6 @@ func NextDay(day Weekday) Weekday {
 func main() {
 	//var today Weekday = Sunday
 	//tomorrow := NextDay(today)
-	var f float64 = 1.2654
-	float := strconv.FormatFloat(f, 'G', -1, 64)
-	log.Println("F = " + float)
+
+	log.Println(time.Now().UTC())
 }

@@ -2,6 +2,7 @@ package mapper
 
 import (
 	"fmt"
+	"time"
 	"web/application/domain"
 	"web/application/dto"
 )
@@ -38,7 +39,13 @@ func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPas
 		LastName:  regDto.LastName,
 		Email:     regDto.Email,
 		Password:  string(hashPass),
-		DType:     []string{"Account"},
+		IsBlocked: false,
+		IsDeleted: false,
+		IsOnline:  false,
+		CreatedOn: time.Now().UTC(),
+		UpdatedOn: time.Now().UTC(),
+
+		DType: []string{"Account"},
 	}
 
 }

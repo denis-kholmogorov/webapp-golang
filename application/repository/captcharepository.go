@@ -73,6 +73,12 @@ func (r CaptchaRepository) Save(captcha *domain.Captcha) (*string, error) {
 	return &captchaId, nil
 }
 
+var deleteById = `{
+	delete {
+		<%uid * * .>
+	}	
+}`
+
 var getById = `{ captchaList (func: uid(%s)) {
 uid
 captchaCode 
