@@ -7,6 +7,7 @@ import (
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
 	"log"
+	"time"
 	"web/application/domain"
 )
 
@@ -31,8 +32,8 @@ func (r AccountRepository) Save(account *domain.Account) (*string, error) {
 	txn := r.conn.NewTxn()
 	accountm, err := json.Marshal(account)
 	if err != nil {
-		log.Printf("AccountRepository:save() Error marhalling captcha %s", err)
-		return nil, fmt.Errorf("AccountRepository:Save() Error marhalling captcha %s", err)
+		log.Printf("AccountRepository:save() Error marhalling account %s", err)
+		return nil, fmt.Errorf("AccountRepository:Save() Error marhalling account %s", err)
 	}
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
@@ -90,6 +91,25 @@ func (r AccountRepository) FindById(id string) (*domain.Account, error) {
 
 	return &response.Accounts[0], nil
 
+}
+
+func (r AccountRepository) Update(account *domain.Account) (*string, error) {
+	timeNow := time.Now().UTC()
+	account.DType = []string{"Account"}
+	account.UpdatedOn = &timeNow
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	accountm, err := json.Marshal(account)
+	if err != nil {
+		log.Printf("AccountRepository:Update() Error marhalling account %s", err)
+		return nil, fmt.Errorf("AccountRepository:Update() Error marhalling account %s", err)
+	}
+	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
+	if err != nil {
+		log.Printf("AccountRepository:Update() Error mutate %s", err)
+		return nil, fmt.Errorf("AccountRepository:Update() Error mutate %s", err)
+	}
+	return &account.Uid, nil
 }
 
 var existEmail = `{ accounts (func: eq(email, "%s")) {

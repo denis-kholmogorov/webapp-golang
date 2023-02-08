@@ -33,6 +33,8 @@ func (p *PersonMapper) toEntity(person any) any {
 }
 
 func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPass []byte) *domain.Account {
+	timeNow := time.Now().UTC()
+
 	return &domain.Account{
 		Uid:       fmt.Sprintf("_:%s", regDto.Email),
 		FirstName: regDto.FirstName,
@@ -42,8 +44,8 @@ func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPas
 		IsBlocked: false,
 		IsDeleted: false,
 		IsOnline:  false,
-		CreatedOn: time.Now().UTC(),
-		UpdatedOn: time.Now().UTC(),
+		CreatedOn: &timeNow,
+		UpdatedOn: &timeNow,
 
 		DType: []string{"Account"},
 	}

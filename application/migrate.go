@@ -46,7 +46,7 @@ updatedOn: datetime .
 birthDate: datetime .
 lastOnlineTime: datetime .`
 
-const CreateCaptchaType = `type getCaptcha {
+const CreateCaptchaType = `type Captcha {
     captchaId
 	captchaCode
 	expiredTime
@@ -55,6 +55,44 @@ const CreateCaptchaType = `type getCaptcha {
 captchaId: string @index(term) @lang .
 captchaCode: string @index(term) @lang .
 expiredTime: datetime .`
+
+const CreateCityType = `type City {
+    title
+}
+
+title: string @lang .`
+
+const CreateCountryType = `type Country {
+    title
+	cities
+}
+
+title: string @lang .
+cities: [uid] .`
+
+const InsertCountryRu = `{
+"title":"Россия",
+"cities":[
+{"title":"Москва","dgraph.type":["City"]},
+{"title":"Ярославль","dgraph.type":["City"]},
+{"title":"Саратов","dgraph.type":["City"]},
+{"title":"Санкт-Петербург","dgraph.type":["City"]},
+{"title":"Казань","dgraph.type":["City"]}
+],
+"dgraph.type":["Country"]
+}`
+
+const InsertRB = `{
+"title":"Беларуссия",
+"cities":[
+{"title":"Минск","dgraph.type":["City"]},
+{"title":"Гродно","dgraph.type":["City"]},
+{"title":"Сморгонь","dgraph.type":["City"]},
+{"title":"Витебск","dgraph.type":["City"]},
+{"title":"Орша","dgraph.type":["City"]}
+],
+"dgraph.type":["Country"]
+}`
 
 const FindByEmail = `{
 	q (func: eq(email, "%s")) {

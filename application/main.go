@@ -28,13 +28,13 @@ func main() {
 	connection := createDbConnection()
 	startDbMigrate(connection)
 	repository.NewDGraphConn(connection)
-	//repository.NewDGraphConn(connection)
 
 	server := gin.Default()
 	server.Use(security.NewSecurity().AuthMiddleware)
 
 	resource.AccountResource(server, service.NewAccountService())
 	resource.AuthResource(server, service.NewAuthService())
+	resource.GeoResource(server, service.NewGeoService())
 
 	err := server.Run()
 	if err != nil {
@@ -76,6 +76,37 @@ func startDbMigrate(conn *dgo.Dgraph) {
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCaptchaType,
 	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateCountryType,
+	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateCityType,
+	})
+
+	txn := conn.NewTxn()
+
+	//country := domain.Country{
+	//	DType: []string{"Country"},
+	//	Title: "Russia",
+	//	Cities: []domain.City{
+	//		domain.City{
+	//			DType: []string{"City"},
+	//			Title: "Moscow",
+	//		},
+	//	},
+	//}
+	//marshal, err := json.Marshal(country)
+	marshalR := []byte(InsertCountryRu)
+	marshalRB := []byte(InsertRB)
+	if err != nil {
+		return
+	}
+	_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalR})
+	_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalRB, CommitNow: true})
+	if err != nil {
+		return
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}

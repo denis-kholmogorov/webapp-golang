@@ -44,6 +44,19 @@ func (s *AccountService) GetMe(c *gin.Context) {
 	}
 }
 
+func (s *AccountService) UpdateMe(c *gin.Context) {
+	id, _ := c.Get("id")
+	account := domain.Account{Uid: id.(string)}
+	bindJson(c, &account)
+	email, err := s.accountRepository.Update(&account)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", email))
+	} else {
+		c.JSON(http.StatusOK, account)
+	}
+}
+
 //
 //func (s *AccountService) GetAllFields(c *gin.Context) {
 //	person := domain.Account{}
