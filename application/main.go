@@ -35,6 +35,7 @@ func main() {
 	resource.AccountResource(server, service.NewAccountService())
 	resource.AuthResource(server, service.NewAuthService())
 	resource.GeoResource(server, service.NewGeoService())
+	resource.StorageResource(server, service.NewStorageService())
 
 	err := server.Run()
 	if err != nil {
