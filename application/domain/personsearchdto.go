@@ -1,6 +1,6 @@
 package domain
 
-type AccountSearchDto struct {
+type PostSearchDto struct {
 	FirstName string `query:"firstName"`
 	LastName  string `query:"lastName"`
 	//Email        string    `json:"email" pg:"email"`

@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"time"
+	"math"
 )
 
 type Weekday int
@@ -23,7 +23,10 @@ func NextDay(day Weekday) Weekday {
 
 func main() {
 	//var today Weekday = Sunday
-	//tomorrow := NextDay(today)
+	//tomorrow := NextDay(today
 
-	log.Println(time.Now().UTC())
+	//posts := domain.Posts{TotalElement: 8}
+	//i := posts.TotalPages / 3
+
+	log.Println(math.Ceil(1.0 / 3))
 }

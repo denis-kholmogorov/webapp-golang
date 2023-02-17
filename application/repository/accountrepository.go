@@ -33,17 +33,17 @@ func (r AccountRepository) Save(account *domain.Account) (*string, error) {
 	accountm, err := json.Marshal(account)
 	if err != nil {
 		log.Printf("AccountRepository:save() Error marhalling account %s", err)
-		return nil, fmt.Errorf("AccountRepository:Save() Error marhalling account %s", err)
+		return nil, fmt.Errorf("AccountRepository:Create() Error marhalling account %s", err)
 	}
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
 		log.Printf("AccountRepository:save() Error mutate %s", err)
-		return nil, fmt.Errorf("AccountRepository:Save() Error mutate %s", err)
+		return nil, fmt.Errorf("AccountRepository:Create() Error mutate %s", err)
 	}
 	accountId := mutate.Uids[account.Email]
 	if len(accountId) == 0 {
 		log.Printf("AccountRepository:save() capthcaId not found")
-		return nil, fmt.Errorf("AccountRepository:Save() capthcaId not found")
+		return nil, fmt.Errorf("AccountRepository:Create() capthcaId not found")
 	}
 	return &accountId, nil
 }

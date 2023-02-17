@@ -13,6 +13,7 @@ type Account struct {
 	IsBlocked         bool       `json:"isBlocked"`
 	IsOnline          bool       `json:"isOnline"`
 	DType             []string   `json:"dgraph.type,omitempty"`
+	Posts             []Post     `json:"posts,omitempty"`
 	Phone             string     `json:"phone,omitempty"`
 	Photo             string     `json:"photo,omitempty"`
 	PhotoId           string     `json:"photoId,omitempty"`

@@ -22,13 +22,13 @@ func NewCaptchaWithCode(captchaCode string, code []byte) *Captcha {
 		CaptchaId:       fmt.Sprintf("_:%s", captchaCode),
 		CaptchaCode:     captchaCode,
 		ExpiredTime:     time.Now(),
-		DType:           []string{"getCaptcha"},
+		DType:           []string{"Captcha"},
 		CaptchaCodeByte: code,
 	}
 }
 
 func NewCaptcha() *Captcha {
 	return &Captcha{
-		DType: []string{"getCaptcha"},
+		DType: []string{"Captcha"},
 	}
 }

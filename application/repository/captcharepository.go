@@ -58,17 +58,17 @@ func (r CaptchaRepository) Save(captcha *domain.Captcha) (*string, error) {
 	captcham, err := json.Marshal(captcha)
 	if err != nil {
 		log.Printf("CaptchaRepository:save() Error marhalling captcha %s", err)
-		return nil, fmt.Errorf("CaptchaRepository:Save() Error marhalling captcha %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:Create() Error marhalling captcha %s", err)
 	}
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: captcham, CommitNow: true})
 	if err != nil {
 		log.Printf("CaptchaRepository:save() Error mutate %s", err)
-		return nil, fmt.Errorf("CaptchaRepository:Save() Error mutate %s", err)
+		return nil, fmt.Errorf("CaptchaRepository:Create() Error mutate %s", err)
 	}
 	captchaId := mutate.Uids[captcha.CaptchaCode]
 	if len(captchaId) == 0 {
 		log.Printf("CaptchaRepository:save() capthcaId not found")
-		return nil, fmt.Errorf("CaptchaRepository:Save() capthcaId not found")
+		return nil, fmt.Errorf("CaptchaRepository:Create() capthcaId not found")
 	}
 	return &captchaId, nil
 }

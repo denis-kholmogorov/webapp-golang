@@ -43,7 +43,9 @@ func (r GeoRepository) FindAll() ([]domain.Country, error) {
 func (r GeoRepository) FindCitiesByCountryId(id string) ([]domain.City, error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
-	vars, err := txn.Query(ctx, fmt.Sprintf(getAllCities, id))
+	variables := make(map[string]string)
+	variables["$countryId"] = id
+	vars, err := txn.QueryWithVars(ctx, getAllCities, variables)
 
 	captchaList := domain.CountriesList{}
 	if err != nil {
@@ -64,7 +66,7 @@ var getAllCountries = `{ countriesList (func: type(Country)) {
 	}
 }`
 
-var getAllCities = `{ countriesList (func: uid(%s)) {
+var getAllCities = `query Cities($countryId: string) { countriesList (func: uid($countryId)) {
 	cities{
 		uid
 		title

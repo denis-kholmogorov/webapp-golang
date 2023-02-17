@@ -16,6 +16,7 @@ const CreateAccountType = `type Account {
 	about
 	city
 	country
+	posts
 	statusCode
 	messagePermission
 	createdOn
@@ -44,7 +45,31 @@ messagePermission: string .
 createdOn: datetime .
 updatedOn: datetime .
 birthDate: datetime .
-lastOnlineTime: datetime .`
+lastOnlineTime: datetime .
+posts: [uid] .`
+
+const CreatePostType = `type Post {
+    isDeleted
+    publishDate
+    myLike
+    commentsCount
+	likeAmount
+	time
+	isBlocked
+	type
+}
+
+isDeleted: bool .
+publishDate: datetime .
+myLike: bool .
+commentsCount: int .
+likeAmount: int .
+time: datetime .
+isBlocked: bool .
+type: string .
+likes: [uid] .
+tags: [uid] .
+`
 
 const CreateCaptchaType = `type Captcha {
     captchaId

@@ -1,6 +1,6 @@
 package dto
 
 type PhotoDto struct {
-	Photo     string `json:"photo"`
+	PhotoPath string `json:"photoPath"`
 	PhotoName string `json:"photoName"`
 }

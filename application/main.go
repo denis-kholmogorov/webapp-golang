@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"os"
+	"strconv"
 	"web/application/repository"
 	"web/application/resource"
 	"web/application/security"
@@ -36,6 +37,7 @@ func main() {
 	resource.AuthResource(server, service.NewAuthService())
 	resource.GeoResource(server, service.NewGeoService())
 	resource.StorageResource(server, service.NewStorageService())
+	resource.PostResource(server, service.NewPostService())
 
 	err := server.Run()
 	if err != nil {
@@ -65,10 +67,24 @@ func getDBUrl() string {
 	return url
 }
 
+func isDropFirst() bool {
+	ok, exists := os.LookupEnv("DROP_FIRST")
+	isDrop := false
+	if exists {
+		ok, err := strconv.ParseBool(ok)
+		if err != nil {
+			log.Fatal(err)
+		}
+		isDrop = ok
+	}
+
+	return isDrop
+}
+
 func startDbMigrate(conn *dgo.Dgraph) {
 
 	err := conn.Alter(context.Background(), &api.Operation{
-		DropAll: false,
+		DropAll: isDropFirst(),
 	})
 
 	err = conn.Alter(context.Background(), &api.Operation{
@@ -77,8 +93,12 @@ func startDbMigrate(conn *dgo.Dgraph) {
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCaptchaType,
 	})
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCountryType,
+	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreatePostType,
 	})
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCityType,
@@ -86,33 +106,14 @@ func startDbMigrate(conn *dgo.Dgraph) {
 
 	txn := conn.NewTxn()
 
-	//country := domain.Country{
-	//	DType: []string{"Country"},
-	//	Title: "Russia",
-	//	Cities: []domain.City{
-	//		domain.City{
-	//			DType: []string{"City"},
-	//			Title: "Moscow",
-	//		},
-	//	},
-	//}
-	//marshal, err := json.Marshal(country)
-	marshalR := []byte(InsertCountryRu)
-	marshalRB := []byte(InsertRB)
-	if err != nil {
-		return
-	}
-	_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalR})
-	_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalRB, CommitNow: true})
-	if err != nil {
-		return
+	if isDropFirst() {
+		marshalR := []byte(InsertCountryRu)
+		marshalRB := []byte(InsertRB)
+		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalR})
+		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalRB, CommitNow: true})
+		if err != nil {
+			log.Fatal("Import new data has been closed with error")
+		}
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err != nil {
-		log.Fatal("The drop all operation should have succeeded")
-	}
 }

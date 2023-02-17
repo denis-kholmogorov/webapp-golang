@@ -57,6 +57,17 @@ func (s *AccountService) UpdateMe(c *gin.Context) {
 	}
 }
 
+func (s *AccountService) FindById(c *gin.Context) {
+	id := c.Param("id")
+	account, err := s.accountRepository.FindById(id)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+	} else {
+		c.JSON(http.StatusOK, account)
+	}
+}
+
 //
 //func (s *AccountService) GetAllFields(c *gin.Context) {
 //	person := domain.Account{}
