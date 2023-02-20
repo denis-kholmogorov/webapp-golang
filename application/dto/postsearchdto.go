@@ -2,6 +2,7 @@ package dto
 
 type PostSearchDto struct {
 	AuthorId    string `form:"authorId" json:"authorId"`
+	Text        string `form:"text" json:"text"`
 	WithFriends bool   `form:"withFriends" json:"withFriends"`
 	IsDeleted   bool   `form:"isDeleted" json:"isDeleted"`
 	Sort        string `form:"sort" json:"sort"`

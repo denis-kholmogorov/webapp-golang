@@ -57,15 +57,21 @@ func (r PostRepository) Create(post *domain.Post, authorId string) (*string, err
 	return &postId, nil
 }
 
-func (r PostRepository) GetAll(dto dto.PostSearchDto) (post *domain.Posts, err error) {
+func (r PostRepository) GetAll(dto dto.PostSearchDto) (post *domain.Posts, e error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
+	var vars *api.Response
+	var err error
 	variables := make(map[string]string)
-	variables["$accountId"] = dto.AuthorId
 	variables["$first"] = strconv.Itoa(dto.Size)
 	variables["$offset"] = strconv.Itoa(dto.Size * utils.GetPageNumber(&dto))
-
-	vars, err := txn.QueryWithVars(ctx, getAllPosts, variables)
+	if len(dto.Text) == 0 {
+		variables["$accountId"] = dto.AuthorId
+		vars, err = txn.QueryWithVars(ctx, getAllPosts, variables)
+	} else {
+		variables["$text"] = strconv.Itoa(dto.Size)
+		vars, err = txn.QueryWithVars(ctx, getAllPostsByText, variables)
+	}
 
 	if err != nil {
 		log.Printf("GeoRepository:FindAll() Error query %s", err)
@@ -82,6 +88,25 @@ func (r PostRepository) GetAll(dto dto.PostSearchDto) (post *domain.Posts, err e
 	}
 	return &response.Posts[0], nil
 }
+
+var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
+{
+    posts(func: anyoftext(postText, $text) ) {
+    content:posts(orderdesc: time)(first: $first, offset: $offset){
+	id:uid
+	postText
+	title
+	time
+	tags
+	timeChanged
+	type
+	isDeleted
+	isBlocked
+	imagePath
+    }
+    totalElement:count(posts)
+  }
+}`
 
 var getAllPosts = `query Posts($accountId: string, $first: int, $offset: int)
 {
@@ -100,5 +125,4 @@ var getAllPosts = `query Posts($accountId: string, $first: int, $offset: int)
     }
     totalElement:count(posts)
   }
-}
-`
+}`

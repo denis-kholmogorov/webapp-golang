@@ -3,7 +3,7 @@ package domain
 import "time"
 
 type Account struct {
-	Uid               string     `json:"uid,omitempty"`
+	Uid               string     `json:"id,omitempty"`
 	Email             string     `json:"email,omitempty"`
 	FirstName         string     `json:"firstName,omitempty"`
 	LastName          string     `json:"lastName,omitempty"`
@@ -29,6 +29,15 @@ type Account struct {
 	LastOnlineTime    *time.Time `json:"lastOnlineTime,omitempty" time_format:"2006-01-02 15:04:05.99Z07:00"`
 }
 
-func NewAccount() *Account {
-	return &Account{DType: []string{"Account"}}
+type PageResponse struct {
+	Content      []any   `json:"content,omitempty"`
+	TotalElement int     `json:"totalElement,omitempty"`
+	TotalPages   int     `json:"totalPages,omitempty"`
+	Number       int     `json:"number"`
+	Size         int     `json:"size,omitempty"`
+	Count        []Count `json:"count,omitempty"`
+}
+
+type Count struct {
+	TotalElement int `json:"totalElement,omitempty"`
 }

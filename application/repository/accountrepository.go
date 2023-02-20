@@ -7,8 +7,12 @@ import (
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
 	"log"
+	"math"
+	"strconv"
 	"time"
 	"web/application/domain"
+	"web/application/dto"
+	"web/application/utils"
 )
 
 var accountRepo *AccountRepository
@@ -51,8 +55,9 @@ func (r AccountRepository) Save(account *domain.Account) (*string, error) {
 func (r AccountRepository) FindByEmail(email string) ([]domain.Account, error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
-	query := fmt.Sprintf(existEmail, email)
-	vars, err := txn.Query(ctx, query)
+	variables := make(map[string]string)
+	variables["$email"] = email
+	vars, err := txn.QueryWithVars(ctx, existEmail, variables)
 	if err != nil {
 		log.Printf("AccountRepository:existsEmail() Error query %s", err)
 		return nil, fmt.Errorf("AccountRepository:existsEmail() Error query %s", err)
@@ -73,8 +78,9 @@ func (r AccountRepository) FindByEmail(email string) ([]domain.Account, error) {
 func (r AccountRepository) FindById(id string) (*domain.Account, error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
-	query := fmt.Sprintf(findById, id)
-	vars, err := txn.Query(ctx, query)
+	variables := make(map[string]string)
+	variables["$id"] = id
+	vars, err := txn.QueryWithVars(ctx, findById, variables)
 	if err != nil {
 		log.Printf("AccountRepository:existsEmail() Error query %s", err)
 		return nil, fmt.Errorf("AccountRepository:existsEmail() Error query %s", err)
@@ -112,8 +118,39 @@ func (r AccountRepository) Update(account *domain.Account) (*string, error) {
 	return &account.Uid, nil
 }
 
-var existEmail = `{ accounts (func: eq(email, "%s")) {
-		uid
+func (r AccountRepository) FindAll(dto dto.AccountSearchDto) (*domain.PageResponse, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	variables := make(map[string]string)
+	variables["$search"] = fmt.Sprintf("/.*%s.*/", dto.Author)
+	variables["$first"] = strconv.Itoa(dto.Size)
+	variables["$offset"] = strconv.Itoa(dto.Size * utils.GetPageNumber(&dto))
+
+	var vars *api.Response
+	var err error
+
+	if len(dto.Author) > 2 {
+		vars, err = txn.QueryWithVars(ctx, findByAuthor, variables)
+	} else if len(dto.Author) > 0 && len(dto.Author) <= 2 {
+		log.Printf("GeoRepository:FindAll() Error query %s", err)
+		return nil, fmt.Errorf("query should be more to %s words", "2")
+	}
+
+	response := domain.PageResponse{}
+	err = json.Unmarshal(vars.Json, &response)
+	if len(response.Content) > 0 {
+		response.Size = dto.Size
+		response.TotalElement = response.Count[0].TotalElement
+		response.TotalPages = int(math.Ceil(float64(response.TotalElement) / float64(dto.Size)))
+		response.Number = dto.Page + 1
+	}
+	return &response, nil
+
+}
+
+var existEmail = `query AccountByEmail($email: string)
+{ accounts (func: eq(email, $email)) {
+		id:uid
 		firstName
 		lastName
 		email
@@ -121,8 +158,9 @@ var existEmail = `{ accounts (func: eq(email, "%s")) {
 	}
 }`
 
-var findById = `{ account (func: uid("%s")) {
-		uid
+var findById = `query AccountById($id: string)
+{ account (func: uid($id)) {
+		id:uid
 		email
 		firstName
 		lastName
@@ -141,3 +179,46 @@ var findById = `{ account (func: uid("%s")) {
 		lastOnlineTime
 	}
 }`
+
+var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int){
+var(func: regexp(firstName, $search), first: 10, offset: 0)  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
+    A as uid 
+  }  
+    var(func: regexp(lastName, $search), first: 10, offset: 0)  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
+    B as uid 
+  }
+	content(func: uid(A,B), orderdesc: firstName, first: 10, offset: 0)  {
+		firstName
+		lastName
+		age
+		isDeleted
+		isBlocked
+		isOnline
+		phone
+		photo
+		photoId
+		photoName
+	}
+	count(func: type(Account)) @filter(eq(isDeleted,false)){
+		totalElement: count(firstName)
+	}
+}`
+
+//
+//var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int)
+//{ content(func: regexp(firstName, $search),first: $first, offset: $offset) @filter(eq(dgraph.type, Account) and eq(isDeleted, false))  {
+//		firstName
+//		lastName
+//		age
+//		isDeleted
+//		isBlocked
+//		isOnline
+//		phone
+//		photo
+//		photoId
+//		photoName
+//}
+//totalElement(func: type(Account)) @filter(eq(isDeleted,false)){
+//				count: count(firstName)
+//      }
+//}`

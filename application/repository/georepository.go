@@ -62,14 +62,14 @@ func (r GeoRepository) FindCitiesByCountryId(id string) ([]domain.City, error) {
 
 var getAllCountries = `{ countriesList (func: type(Country)) {
 	id : uid
-	title
+	title: countryTitle
 	}
 }`
 
 var getAllCities = `query Cities($countryId: string) { countriesList (func: uid($countryId)) {
 	cities{
 		uid
-		title
+		title: cityTitle
     	}
 	}
 }`

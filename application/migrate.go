@@ -26,8 +26,8 @@ const CreateAccountType = `type Account {
 }
 
 email: string @index(term) @lang .
-firstName: string @index(term) @lang .
-lastName: string @index(term) @lang .
+firstName: string @index(trigram) @lang .
+lastName: string @index(trigram) @lang .
 password: string @index(term) @lang .
 age: int @index(int) .
 isDeleted: bool .
@@ -46,9 +46,11 @@ createdOn: datetime .
 updatedOn: datetime .
 birthDate: datetime .
 lastOnlineTime: datetime .
-posts: [uid] .`
+posts: [uid] @reverse .`
 
 const CreatePostType = `type Post {
+	postText
+	title
     isDeleted
     publishDate
     myLike
@@ -58,7 +60,8 @@ const CreatePostType = `type Post {
 	isBlocked
 	type
 }
-
+postText: string @index(fulltext) .
+title: string @index(fulltext) .
 isDeleted: bool .
 publishDate: datetime .
 myLike: bool .
@@ -82,39 +85,39 @@ captchaCode: string @index(term) @lang .
 expiredTime: datetime .`
 
 const CreateCityType = `type City {
-    title
+    cityTitle
 }
 
-title: string @lang .`
+cityTitle: string @lang .`
 
 const CreateCountryType = `type Country {
-    title
+    countryTitle
 	cities
 }
 
-title: string @lang .
+countryTitle: string @lang .
 cities: [uid] .`
 
 const InsertCountryRu = `{
-"title":"Россия",
+"countryTitle":"Россия",
 "cities":[
-{"title":"Москва","dgraph.type":["City"]},
-{"title":"Ярославль","dgraph.type":["City"]},
-{"title":"Саратов","dgraph.type":["City"]},
-{"title":"Санкт-Петербург","dgraph.type":["City"]},
-{"title":"Казань","dgraph.type":["City"]}
+{"cityTitle":"Москва","dgraph.type":["City"]},
+{"cityTitle":"Ярославль","dgraph.type":["City"]},
+{"cityTitle":"Саратов","dgraph.type":["City"]},
+{"cityTitle":"Санкт-Петербург","dgraph.type":["City"]},
+{"cityTitle":"Казань","dgraph.type":["City"]}
 ],
 "dgraph.type":["Country"]
 }`
 
 const InsertRB = `{
-"title":"Беларуссия",
+"countryTitle":"Беларуссия",
 "cities":[
-{"title":"Минск","dgraph.type":["City"]},
-{"title":"Гродно","dgraph.type":["City"]},
-{"title":"Сморгонь","dgraph.type":["City"]},
-{"title":"Витебск","dgraph.type":["City"]},
-{"title":"Орша","dgraph.type":["City"]}
+{"cityTitle":"Минск","dgraph.type":["City"]},
+{"cityTitle":"Гродно","dgraph.type":["City"]},
+{"cityTitle":"Сморгонь","dgraph.type":["City"]},
+{"cityTitle":"Витебск","dgraph.type":["City"]},
+{"cityTitle":"Орша","dgraph.type":["City"]}
 ],
 "dgraph.type":["Country"]
 }`

@@ -5,8 +5,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"web/application/domain"
+	"web/application/dto"
+	"web/application/errors"
 	"web/application/kafka"
 	"web/application/repository"
+	"web/application/utils"
 )
 
 type AccountService struct {
@@ -34,11 +37,9 @@ func NewAccountService() *AccountService {
 //}
 
 func (s *AccountService) GetMe(c *gin.Context) {
-	id, _ := c.Get("id")
-	account, err := s.accountRepository.FindById(id.(string))
-
+	account, err := s.accountRepository.FindById(utils.GetCurrentUserId(c))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", id))
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
 	} else {
 		c.JSON(http.StatusOK, account)
 	}
@@ -47,7 +48,7 @@ func (s *AccountService) GetMe(c *gin.Context) {
 func (s *AccountService) UpdateMe(c *gin.Context) {
 	id, _ := c.Get("id")
 	account := domain.Account{Uid: id.(string)}
-	bindJson(c, &account)
+	utils.BindJson(c, &account)
 	email, err := s.accountRepository.Update(&account)
 
 	if err != nil {
@@ -66,6 +67,19 @@ func (s *AccountService) FindById(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, account)
 	}
+}
+
+func (s *AccountService) FindAll(c *gin.Context) {
+	searchDto := dto.AccountSearchDto{}
+	utils.BindQuery(c, &searchDto)
+
+	account, err := s.accountRepository.FindAll(searchDto)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errors.ErrorDescription{ErrorDescription: err.Error()})
+	} else {
+		c.JSON(http.StatusOK, account)
+	}
+
 }
 
 //
@@ -88,7 +102,7 @@ func (s *AccountService) FindById(c *gin.Context) {
 //	}
 //}
 //
-//func (s *AccountService) GetAll(c *gin.Context) {
+//func (s *AccountService) FindAll(c *gin.Context) {
 //	domainPerson, err := s.accountRepository.FindAll()
 //	if err != nil {
 //		log.Printf(err.Error())
@@ -133,19 +147,3 @@ func (s *AccountService) FindById(c *gin.Context) {
 //		c.JSON(http.StatusCreated, &id)
 //	}
 //}
-
-func bindJson(c *gin.Context, value any) {
-	err := c.BindJSON(value)
-	if err != nil {
-		fmt.Printf("Can't parse json from request %s", err.Error())
-		c.AbortWithStatus(http.StatusBadRequest)
-	}
-}
-
-func bindQuery(c *gin.Context, value any) {
-	err := c.BindQuery(value)
-	if err != nil {
-		fmt.Printf(err.Error())
-		c.AbortWithStatus(http.StatusBadRequest)
-	}
-}

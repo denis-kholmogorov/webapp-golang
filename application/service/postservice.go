@@ -22,11 +22,10 @@ func NewPostService() *PostService {
 }
 
 func (s *PostService) GetAll(c *gin.Context) {
-	value, _ := c.Get("id")
-	authorId := value.(string)
 	searchDto := dto.PostSearchDto{}
-	bindQuery(c, &searchDto)
-	searchDto.AuthorId = authorId
+	utils.BindQuery(c, &searchDto)
+
+	searchDto.AuthorId = utils.GetCurrentUserId(c)
 	posts, err := s.repository.GetAll(searchDto)
 	if err != nil {
 		log.Println(err)
