@@ -24,8 +24,9 @@ func NewPostService() *PostService {
 func (s *PostService) GetAll(c *gin.Context) {
 	searchDto := dto.PostSearchDto{}
 	utils.BindQuery(c, &searchDto)
-
-	searchDto.AuthorId = utils.GetCurrentUserId(c)
+	if len(searchDto.AccountIds) == 0 {
+		searchDto.AccountIds = append(searchDto.AccountIds, utils.GetCurrentUserId(c))
+	}
 	posts, err := s.repository.GetAll(searchDto)
 	if err != nil {
 		log.Println(err)

@@ -49,6 +49,7 @@ lastOnlineTime: datetime .
 posts: [uid] @reverse .`
 
 const CreatePostType = `type Post {
+	authorId
 	postText
 	title
     isDeleted
@@ -60,6 +61,7 @@ const CreatePostType = `type Post {
 	isBlocked
 	type
 }
+authorId: string @index(hash) .
 postText: string @index(fulltext) .
 title: string @index(fulltext) .
 isDeleted: bool .

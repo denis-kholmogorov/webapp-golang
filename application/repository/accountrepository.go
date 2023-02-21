@@ -7,7 +7,6 @@ import (
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
 	"log"
-	"math"
 	"strconv"
 	"time"
 	"web/application/domain"
@@ -31,25 +30,21 @@ func GetAccountRepository() *AccountRepository {
 	return accountRepo
 }
 
-func (r AccountRepository) Save(account *domain.Account) (*string, error) {
+func (r AccountRepository) Save(account *domain.Account) error {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	accountm, err := json.Marshal(account)
 	if err != nil {
 		log.Printf("AccountRepository:save() Error marhalling account %s", err)
-		return nil, fmt.Errorf("AccountRepository:Create() Error marhalling account %s", err)
+		return fmt.Errorf("AccountRepository:Create() Error marhalling account %s", err)
 	}
-	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
+	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
 		log.Printf("AccountRepository:save() Error mutate %s", err)
-		return nil, fmt.Errorf("AccountRepository:Create() Error mutate %s", err)
+		return fmt.Errorf("AccountRepository:Create() Error mutate %s", err)
 	}
-	accountId := mutate.Uids[account.Email]
-	if len(accountId) == 0 {
-		log.Printf("AccountRepository:save() capthcaId not found")
-		return nil, fmt.Errorf("AccountRepository:Create() capthcaId not found")
-	}
-	return &accountId, nil
+
+	return nil // TODO добавить получение юзера
 }
 
 func (r AccountRepository) FindByEmail(email string) ([]domain.Account, error) {
@@ -115,35 +110,34 @@ func (r AccountRepository) Update(account *domain.Account) (*string, error) {
 		log.Printf("AccountRepository:Update() Error mutate %s", err)
 		return nil, fmt.Errorf("AccountRepository:Update() Error mutate %s", err)
 	}
-	return &account.Uid, nil
+	return &account.Id, nil
 }
 
-func (r AccountRepository) FindAll(dto dto.AccountSearchDto) (*domain.PageResponse, error) {
+func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageResponse, error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	variables := make(map[string]string)
-	variables["$search"] = fmt.Sprintf("/.*%s.*/", dto.Author)
-	variables["$first"] = strconv.Itoa(dto.Size)
-	variables["$offset"] = strconv.Itoa(dto.Size * utils.GetPageNumber(&dto))
+	variables["$search"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
+	variables["$first"] = strconv.Itoa(searchDto.Size)
+	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
 
 	var vars *api.Response
 	var err error
 
-	if len(dto.Author) > 2 {
+	if len(searchDto.Author) > 2 {
 		vars, err = txn.QueryWithVars(ctx, findByAuthor, variables)
-	} else if len(dto.Author) > 0 && len(dto.Author) <= 2 {
+	} else if len(searchDto.Author) > 0 && len(searchDto.Author) <= 2 {
 		log.Printf("GeoRepository:FindAll() Error query %s", err)
 		return nil, fmt.Errorf("query should be more to %s words", "2")
 	}
 
-	response := domain.PageResponse{}
+	response := dto.PageResponse{}
 	err = json.Unmarshal(vars.Json, &response)
-	if len(response.Content) > 0 {
-		response.Size = dto.Size
-		response.TotalElement = response.Count[0].TotalElement
-		response.TotalPages = int(math.Ceil(float64(response.TotalElement) / float64(dto.Size)))
-		response.Number = dto.Page + 1
+	if err != nil {
+		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
 	}
+	response.SetPage(searchDto.Size, searchDto.Page)
 	return &response, nil
 
 }
@@ -181,13 +175,13 @@ var findById = `query AccountById($id: string)
 }`
 
 var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int){
-var(func: regexp(firstName, $search), first: 10, offset: 0)  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
+var(func: regexp(firstName, $search))  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
     A as uid 
   }  
-    var(func: regexp(lastName, $search), first: 10, offset: 0)  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
+    var(func: regexp(lastName, $search))  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
     B as uid 
   }
-	content(func: uid(A,B), orderdesc: firstName, first: 10, offset: 0)  {
+	content(func: uid(A,B), orderdesc: firstName, first: $first, offset: $offset)  {
 		firstName
 		lastName
 		age
@@ -199,7 +193,7 @@ var(func: regexp(firstName, $search), first: 10, offset: 0)  @filter(eq(dgraph.t
 		photoId
 		photoName
 	}
-	count(func: type(Account)) @filter(eq(isDeleted,false)){
+	count(func: uid(A,B)){
 		totalElement: count(firstName)
 	}
 }`

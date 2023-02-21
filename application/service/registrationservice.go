@@ -58,7 +58,7 @@ func (s *AuthService) Registration(c *gin.Context) {
 		return
 	}
 	account := s.mapper.RegistrationToAccount(reg, hashPass)
-	_, err = s.accountRepository.Save(account)
+	err = s.accountRepository.Save(account)
 	switch {
 	case err != nil:
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with not found"))
@@ -117,7 +117,7 @@ func createJwtToken(account domain.Account) (*domain.LoginResponse, error) {
 	claims := token.Claims.(jwt.MapClaims)
 	claims["exp"] = json.Number(strconv.FormatInt(time.Now().Add(100*time.Minute).Unix(), 10))
 	claims["authorized"] = true
-	claims["id"] = account.Uid
+	claims["id"] = account.Id
 	claims["age"] = account.Age
 	claims["firstName"] = account.FirstName
 	claims["lastName"] = account.LastName

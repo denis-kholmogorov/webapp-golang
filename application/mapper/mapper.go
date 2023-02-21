@@ -36,7 +36,7 @@ func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPas
 	timeNow := time.Now().UTC()
 
 	return &domain.Account{
-		Uid:       fmt.Sprintf("_:%s", regDto.Email),
+		Id:        fmt.Sprintf("_:%s", regDto.Email),
 		FirstName: regDto.FirstName,
 		LastName:  regDto.LastName,
 		Email:     regDto.Email,
