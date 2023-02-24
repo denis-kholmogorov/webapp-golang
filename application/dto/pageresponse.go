@@ -3,7 +3,7 @@ package dto
 import "math"
 
 type PageResponse struct {
-	Content      []any   `json:"content,omitempty"`
+	Content      []any   `json:"content"`
 	TotalElement int     `json:"totalElement"`
 	TotalPages   int     `json:"totalPages"`
 	Number       int     `json:"number"`

@@ -114,25 +114,46 @@ func (r AccountRepository) Update(account *domain.Account) (*string, error) {
 }
 
 func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageResponse, error) {
-	ctx := context.Background()
-	txn := r.conn.NewReadOnlyTxn()
 	variables := make(map[string]string)
-	variables["$search"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
 
+	query := make(map[int]string)
+	query[0] = ""
+	query[1] = ""
 	var vars *api.Response
 	var err error
 
-	if len(searchDto.Author) > 2 {
-		vars, err = txn.QueryWithVars(ctx, findByAuthor, variables)
-	} else if len(searchDto.Author) > 0 && len(searchDto.Author) <= 2 {
-		log.Printf("GeoRepository:FindAll() Error query %s", err)
-		return nil, fmt.Errorf("query should be more to %s words", "2")
+	txn := r.conn.NewReadOnlyTxn()
+
+	if len(searchDto.Author) > 0 {
+		variables["$search"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
+		vars, err = txn.QueryWithVars(context.Background(), findByAuthor, variables)
+	} else {
+		variables["$firstName"] = fmt.Sprintf("/.*%s.*/", searchDto.FirstName)
+		variables["$lastName"] = fmt.Sprintf("/.*%s.*/", searchDto.LastName)
+		if searchDto.Country != "" {
+			variables["$country"] = searchDto.Country
+			query[0] = query[0] + country
+			query[1] = query[1] + andCountry
+		}
+		if searchDto.City != "" {
+			variables["$city"] = searchDto.City
+			query[0] = query[0] + city
+			query[1] = query[1] + andCity
+		}
+
+		vars, err = txn.QueryWithVars(context.Background(), fmt.Sprintf(findByParams, query[0], query[1]), variables)
+	}
+
+	if err != nil {
+		log.Printf("accountRepository findAll query with error %s", err)
+		return nil, fmt.Errorf("accountRepository findAll query with error")
 	}
 
 	response := dto.PageResponse{}
 	err = json.Unmarshal(vars.Json, &response)
+
 	if err != nil {
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
@@ -174,14 +195,13 @@ var findById = `query AccountById($id: string)
 	}
 }`
 
-var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int){
-var(func: regexp(firstName, $search))  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
-    A as uid 
-  }  
-    var(func: regexp(lastName, $search))  @filter(eq(dgraph.type, Account) and eq(isDeleted, false)){
-    B as uid 
-  }
-	content(func: uid(A,B), orderdesc: firstName, first: $first, offset: $offset)  {
+var findByParams = `query searchAuthor($firstName: string, $lastName: string%s, $first: int, $offset: int)
+{
+	var(func: type(Account)) @filter(regexp(firstName, $firstName) and regexp(lastName, $lastName) %s ){
+	A as uid
+}
+	content(func: uid(A), orderdesc: firstName, first: $first, offset: $offset)  {
+		id: uid
 		firstName
 		lastName
 		age
@@ -193,10 +213,38 @@ var(func: regexp(firstName, $search))  @filter(eq(dgraph.type, Account) and eq(i
 		photoId
 		photoName
 	}
-	count(func: uid(A,B)){
-		totalElement: count(firstName)
+	count(func: uid(A)){
+		totalElement: count(uid)
 	}
 }`
+
+var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int)
+{
+	var(func: type(Account)) @filter(regexp(firstName, $search) or regexp(lastName, $search)){
+	A as uid
+}
+	content(func: uid(A), orderdesc: firstName, first: $first, offset: $offset)  {
+		id: uid
+		firstName
+		lastName
+		age
+		isDeleted
+		isBlocked
+		isOnline
+		phone
+		photo
+		photoId
+		photoName
+	}
+	count(func: uid(A)){
+		totalElement: count(uid)
+	}
+}`
+
+var country = ", $country: string"
+var city = ", $city: string"
+var andCountry = "and eq(country, $country)"
+var andCity = "and eq(city, $city)"
 
 //
 //var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int)

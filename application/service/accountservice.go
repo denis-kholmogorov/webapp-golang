@@ -46,8 +46,8 @@ func (s *AccountService) GetMe(c *gin.Context) {
 }
 
 func (s *AccountService) UpdateMe(c *gin.Context) {
-	id, _ := c.Get("id")
-	account := domain.Account{Id: id.(string)}
+	id := utils.GetCurrentUserId(c)
+	account := domain.Account{Id: id, Uid: id}
 	utils.BindJson(c, &account)
 	email, err := s.accountRepository.Update(&account)
 
