@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
-	"math"
+	"fmt"
+	"time"
 )
 
 type Weekday int
@@ -22,11 +22,13 @@ func NextDay(day Weekday) Weekday {
 }
 
 func main() {
+	now := time.Now()
+	t := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	//var today Weekday = Sunday
 	//tomorrow := NextDay(today
 
 	//posts := domain.Posts{TotalElement: 8}
 	//i := posts.TotalPages / 3
 
-	log.Println(math.Ceil(1.0 / 3))
+	fmt.Println(t.Format("2006-01-02T03:04:05Z"))
 }

@@ -118,9 +118,8 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageRes
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
 
-	query := make(map[int]string)
-	query[0] = ""
-	query[1] = ""
+	query := createSearchQuery()
+
 	var vars *api.Response
 	var err error
 
@@ -142,7 +141,20 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageRes
 			query[0] = query[0] + city
 			query[1] = query[1] + andCity
 		}
-
+		if searchDto.AgeFrom != 0 {
+			now := time.Now()
+			year := now.Year() - searchDto.AgeFrom
+			variables["$ageFrom"] = time.Date(year, now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02T03:04:05Z")
+			query[0] = query[0] + ageFrom
+			query[1] = query[1] + andAgeFrom
+		}
+		if searchDto.AgeTo != 0 {
+			now := time.Now()
+			year := now.Year() - searchDto.AgeTo
+			variables["$ageTo"] = time.Date(year, now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02T03:04:05Z")
+			query[0] = query[0] + ageTo
+			query[1] = query[1] + andAgeTo
+		}
 		vars, err = txn.QueryWithVars(context.Background(), fmt.Sprintf(findByParams, query[0], query[1]), variables)
 	}
 
@@ -160,7 +172,13 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageRes
 	}
 	response.SetPage(searchDto.Size, searchDto.Page)
 	return &response, nil
+}
 
+func createSearchQuery() map[int]string {
+	m := make(map[int]string)
+	m[0] = ""
+	m[1] = ""
+	return m
 }
 
 var existEmail = `query AccountByEmail($email: string)
@@ -243,8 +261,12 @@ var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: in
 
 var country = ", $country: string"
 var city = ", $city: string"
+var ageFrom = ", $ageFrom: string"
+var ageTo = ", $ageTo: string"
 var andCountry = "and eq(country, $country)"
 var andCity = "and eq(city, $city)"
+var andAgeFrom = "and lt(birthDate, $ageFrom)"
+var andAgeTo = "and gt(birthDate, $ageTo)"
 
 //
 //var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int)

@@ -72,7 +72,7 @@ var getAllCountries = `{ countriesList (func: type(Country)) {
 
 var getAllCities = `query Cities($countryId: string) { countriesList (func: uid($countryId)) {
 	cities{
-		uid
+		id: uid
 		title: cityTitle
     	}
 	}

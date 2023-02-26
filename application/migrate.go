@@ -44,7 +44,7 @@ statusCode: string .
 messagePermission: string .
 createdOn: datetime .
 updatedOn: datetime .
-birthDate: datetime .
+birthDate: datetime @index(day).
 lastOnlineTime: datetime .
 posts: [uid] @reverse .`
 
