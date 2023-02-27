@@ -3,7 +3,8 @@ package domain
 import "time"
 
 type Post struct {
-	Uid           string     `json:"id,omitempty"`
+	Id            string     `json:"id,omitempty"`
+	Uid           string     `json:"uid,omitempty"`
 	Title         string     `json:"title"`
 	Type          string     `json:"type,omitempty"`
 	AuthorId      string     `json:"authorId,omitempty"`

@@ -40,13 +40,39 @@ func (s *PostService) Create(c *gin.Context) {
 	post := domain.Post{}
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
-	value, _ := c.Get("id")
-	authorId := value.(string)
+	authorId := utils.GetCurrentUserId(c)
 	_, err := s.repository.Create(&post, authorId)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 	} else {
 		c.JSON(http.StatusCreated, "&id")
+	}
+}
+
+func (s *PostService) Update(c *gin.Context) {
+	post := domain.Post{}
+	utils.BindJson(c, &post)
+	log.Printf("Create new post %v", post)
+	_, err := s.repository.Update(&post)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusCreated, "&id")
+	}
+}
+
+func (s *PostService) GetAllComments(c *gin.Context) {
+	request := dto.PageRequest{}
+	postId := c.Param("postId")
+	utils.BindQuery(c, &request)
+	log.Printf("Get all commets %v by post %s", request, postId)
+	resp, err := s.repository.GetAllComments(request, postId)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, resp)
 	}
 }

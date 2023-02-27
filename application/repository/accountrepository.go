@@ -129,32 +129,8 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageRes
 		variables["$search"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
 		vars, err = txn.QueryWithVars(context.Background(), findByAuthor, variables)
 	} else {
-		variables["$firstName"] = fmt.Sprintf("/.*%s.*/", searchDto.FirstName)
-		variables["$lastName"] = fmt.Sprintf("/.*%s.*/", searchDto.LastName)
-		if searchDto.Country != "" {
-			variables["$country"] = searchDto.Country
-			query[0] = query[0] + country
-			query[1] = query[1] + andCountry
-		}
-		if searchDto.City != "" {
-			variables["$city"] = searchDto.City
-			query[0] = query[0] + city
-			query[1] = query[1] + andCity
-		}
-		if searchDto.AgeFrom != 0 {
-			now := time.Now()
-			year := now.Year() - searchDto.AgeFrom
-			variables["$ageFrom"] = time.Date(year, now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02T03:04:05Z")
-			query[0] = query[0] + ageFrom
-			query[1] = query[1] + andAgeFrom
-		}
-		if searchDto.AgeTo != 0 {
-			now := time.Now()
-			year := now.Year() - searchDto.AgeTo
-			variables["$ageTo"] = time.Date(year, now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02T03:04:05Z")
-			query[0] = query[0] + ageTo
-			query[1] = query[1] + andAgeTo
-		}
+		addFilters(searchDto, variables, query)
+
 		vars, err = txn.QueryWithVars(context.Background(), fmt.Sprintf(findByParams, query[0], query[1]), variables)
 	}
 
@@ -179,6 +155,36 @@ func createSearchQuery() map[int]string {
 	m[0] = ""
 	m[1] = ""
 	return m
+}
+
+func addFilters(searchDto dto.AccountSearchDto, variables map[string]string, query map[int]string) {
+	variables["$firstName"] = fmt.Sprintf("/.*%s.*/", searchDto.FirstName)
+	variables["$lastName"] = fmt.Sprintf("/.*%s.*/", searchDto.LastName)
+
+	if searchDto.Country != "" {
+		variables["$country"] = searchDto.Country
+		query[0] = query[0] + country
+		query[1] = query[1] + andCountry
+	}
+	if searchDto.City != "" {
+		variables["$city"] = searchDto.City
+		query[0] = query[0] + city
+		query[1] = query[1] + andCity
+	}
+	if searchDto.AgeFrom != 0 {
+		now := time.Now()
+		year := now.Year() - searchDto.AgeFrom
+		variables["$ageFrom"] = time.Date(year, now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02T03:04:05Z")
+		query[0] = query[0] + ageFrom
+		query[1] = query[1] + andAgeFrom
+	}
+	if searchDto.AgeTo != 0 {
+		now := time.Now()
+		year := now.Year() - searchDto.AgeTo
+		variables["$ageTo"] = time.Date(year, now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format("2006-01-02T03:04:05Z")
+		query[0] = query[0] + ageTo
+		query[1] = query[1] + andAgeTo
+	}
 }
 
 var existEmail = `query AccountByEmail($email: string)

@@ -74,6 +74,37 @@ isBlocked: bool .
 type: string .
 likes: [uid] .
 tags: [uid] .
+comments: [uid] .
+`
+const CreateCommentType = `type Comment {
+	commentText
+	authorId
+	parentId
+	postId
+	commentType
+	commentsCount
+	myLike
+	likeAmount
+	timeChanged
+	time
+	imagePath
+	isBlocked
+	isDeleted
+}
+commentText: string @index(fulltext) .
+authorId: string @index(hash) .
+parentId: string @index(hash) .
+postId: string @index(hash) .
+commentType: string @index(hash) .
+commentsCount: int .
+myLike: bool .
+likeAmount: int .
+likes: [uid] .
+timeChanged: datetime .
+time: datetime .
+imagePath: string .
+isDeleted: bool .
+isBlocked: bool .
 `
 
 const CreateCaptchaType = `type Captcha {
