@@ -135,6 +135,34 @@ func (r PostRepository) GetAllComments(pageDto dto.PageRequest, postId string) (
 	return &response, nil
 }
 
+func (r PostRepository) CreateComment(comment domain.Comment, postId string, authorId string) (c *string, e error) {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	timeNow := time.Now().UTC()
+	post := domain.Post{Uid: postId}
+	comment.DType = []string{"Comment"}
+	comment.AuthorId = authorId
+	comment.Time = &timeNow
+	comment.TimeChanged = &timeNow
+	post.Comments = []domain.Comment{comment}
+	authorm, err := json.Marshal(post)
+	if err != nil {
+		log.Printf("PostRepository:save() Error marhalling post %s", err)
+		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
+	}
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: authorm, CommitNow: true})
+	if err != nil {
+		log.Printf("PostRepository:save() Error mutate %s", err)
+		return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
+	}
+	commentId := mutate.Uids[""]
+	//if len(postId) == 0 {
+	//	log.Printf("PostRepository:save() capthcaId not found")
+	//	return nil, fmt.Errorf("PostRepository:Create() capthcaId not found")
+	//}
+	return &commentId, nil
+}
+
 var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
 {
     content(func: anyoftext(postText, $text), first: $first, offset: $offset, orderdesc: time) {
@@ -149,6 +177,7 @@ var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
 	isDeleted
 	isBlocked
 	imagePath
+	commentsCount: count(comments)
     }
     count(func: anyoftext(postText, $text)){
 		totalElement:count(uid)
@@ -174,6 +203,7 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
 	isDeleted
 	isBlocked
 	imagePath
+	commentsCount: count(comments)
   }
   count(func: uid(A)){
 		totalElement:count(uid)

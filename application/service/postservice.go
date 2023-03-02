@@ -63,12 +63,26 @@ func (s *PostService) Update(c *gin.Context) {
 	}
 }
 
-func (s *PostService) GetAllComments(c *gin.Context) {
+func (s *PostService) GetAllComment(c *gin.Context) {
 	request := dto.PageRequest{}
 	postId := c.Param("postId")
 	utils.BindQuery(c, &request)
 	log.Printf("Get all commets %v by post %s", request, postId)
 	resp, err := s.repository.GetAllComments(request, postId)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func (s *PostService) CreateComment(c *gin.Context) {
+	postId := c.Param("postId")
+	comment := domain.Comment{}
+	utils.BindJson(c, &comment)
+	log.Printf("Create comment %v by post %s", comment, postId)
+	resp, err := s.repository.CreateComment(comment, postId, utils.GetCurrentUserId(c))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)

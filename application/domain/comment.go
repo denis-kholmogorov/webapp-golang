@@ -18,4 +18,5 @@ type Comment struct {
 	ImagePath     string     `json:"imagePath,omitempty"`
 	IsBlocked     bool       `json:"isBlocked,omitempty"`
 	IsDeleted     bool       `json:"isDeleted,omitempty"`
+	DType         []string   `json:"dgraph.type,omitempty"`
 }
