@@ -90,3 +90,17 @@ func (s *PostService) CreateComment(c *gin.Context) {
 		c.JSON(http.StatusOK, resp)
 	}
 }
+
+func (s *PostService) GetAllSubComment(c *gin.Context) {
+	request := dto.PageRequest{}
+	commentId := c.Param("commentId")
+	utils.BindQuery(c, &request)
+	log.Printf("Get all commets %v by post %s", request, commentId)
+	resp, err := s.repository.GetAllComments(request, commentId)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, resp)
+	}
+}

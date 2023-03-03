@@ -105,6 +105,7 @@ time: datetime .
 imagePath: string .
 isDeleted: bool .
 isBlocked: bool .
+comments: [uid] .
 `
 
 const CreateCaptchaType = `type Captcha {

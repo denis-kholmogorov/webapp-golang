@@ -110,7 +110,7 @@ func (r PostRepository) Update(post *domain.Post) (*string, error) {
 	return nil, nil
 }
 
-func (r PostRepository) GetAllComments(pageDto dto.PageRequest, postId string) (post *dto.PageResponse, e error) {
+func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string) (post *dto.PageResponse, e error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -118,7 +118,7 @@ func (r PostRepository) GetAllComments(pageDto dto.PageRequest, postId string) (
 	variables := make(map[string]string)
 	variables["$first"] = strconv.Itoa(pageDto.Size)
 	variables["$offset"] = strconv.Itoa(pageDto.Size * utils.GetPageNumber(&pageDto))
-	variables["$postId"] = postId
+	variables["$parentId"] = parentId
 	vars, err = txn.QueryWithVars(ctx, getAllComments, variables)
 
 	if err != nil {
@@ -136,21 +136,33 @@ func (r PostRepository) GetAllComments(pageDto dto.PageRequest, postId string) (
 }
 
 func (r PostRepository) CreateComment(comment domain.Comment, postId string, authorId string) (c *string, e error) {
+	var err error
+	var marshal []byte
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	timeNow := time.Now().UTC()
-	post := domain.Post{Uid: postId}
 	comment.DType = []string{"Comment"}
 	comment.AuthorId = authorId
 	comment.Time = &timeNow
+	comment.PostId = postId
 	comment.TimeChanged = &timeNow
-	post.Comments = []domain.Comment{comment}
-	authorm, err := json.Marshal(post)
+	if len(comment.ParentId) > 0 {
+		parent := domain.Comment{Uid: comment.ParentId}
+		comment.CommentType = "COMMENT"
+		parent.Comments = []domain.Comment{comment}
+		marshal, err = json.Marshal(parent)
+	} else {
+		parent := domain.Post{Uid: postId}
+		comment.CommentType = "POST"
+		parent.Comments = []domain.Comment{comment}
+		marshal, err = json.Marshal(parent)
+	}
+
 	if err != nil {
 		log.Printf("PostRepository:save() Error marhalling post %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
 	}
-	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: authorm, CommitNow: true})
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: marshal, CommitNow: true})
 	if err != nil {
 		log.Printf("PostRepository:save() Error mutate %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
@@ -210,9 +222,9 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
   }
 }
 `
-var getAllComments = `query Comments($postId: string, $first: int, $offset: int)
+var getAllComments = `query Comments($parentId: string, $first: int, $offset: int)
 {
-var(func: uid($postId)) {
+var(func: uid($parentId)) {
 	A as comments
 }
   content(func: uid(A), orderdesc: timeChanged, first: $first, offset: $offset)  {
@@ -222,7 +234,7 @@ var(func: uid($postId)) {
 	parentId
 	postId
 	commentType
-	commentsCount
+	commentsCount: count(comments)
 	myLike
 	likeAmount
 	timeChanged

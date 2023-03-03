@@ -19,4 +19,5 @@ type Comment struct {
 	IsBlocked     bool       `json:"isBlocked,omitempty"`
 	IsDeleted     bool       `json:"isDeleted,omitempty"`
 	DType         []string   `json:"dgraph.type,omitempty"`
+	Comments      []Comment  `json:"comments,omitempty"`
 }

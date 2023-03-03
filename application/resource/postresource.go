@@ -10,6 +10,7 @@ func PostResource(e *gin.Engine, service *service.PostService) {
 	e.POST("api/v1/post", service.Create)
 	e.PUT("api/v1/post", service.Update)
 	e.GET("api/v1/post/:postId/comment", service.GetAllComment)
+	e.GET("api/v1/post/:postId/comment/:commentId/subcomment", service.GetAllSubComment)
 	e.POST("api/v1/post/:postId/comment", service.CreateComment)
 
 }
