@@ -11,13 +11,15 @@ import (
 )
 
 type PostService struct {
-	repository *repository.PostRepository
-	post       domain.Post
+	postRepository *repository.PostRepository
+	tagRepository  *repository.TagRepository
+	post           domain.Post
 }
 
 func NewPostService() *PostService {
 	return &PostService{
-		repository: repository.GetPostRepository(),
+		postRepository: repository.GetPostRepository(),
+		tagRepository:  repository.GetTagRepository(),
 	}
 }
 
@@ -27,7 +29,7 @@ func (s *PostService) GetAll(c *gin.Context) {
 	if len(searchDto.AccountIds) == 0 {
 		searchDto.AccountIds = append(searchDto.AccountIds, utils.GetCurrentUserId(c))
 	}
-	posts, err := s.repository.GetAll(searchDto)
+	posts, err := s.postRepository.GetAll(searchDto)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -41,7 +43,14 @@ func (s *PostService) Create(c *gin.Context) {
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
 	authorId := utils.GetCurrentUserId(c)
-	_, err := s.repository.Create(&post, authorId)
+	tags, err := s.tagRepository.CreateIfNotExists(post.Tags)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	post.Tagged = tags
+	_, err = s.postRepository.Create(&post, authorId)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -54,7 +63,7 @@ func (s *PostService) Update(c *gin.Context) {
 	post := domain.Post{}
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
-	_, err := s.repository.Update(&post)
+	_, err := s.postRepository.Update(&post)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -68,7 +77,7 @@ func (s *PostService) GetAllComment(c *gin.Context) {
 	postId := c.Param("postId")
 	utils.BindQuery(c, &request)
 	log.Printf("Get all commets %v by post %s", request, postId)
-	resp, err := s.repository.GetAllComments(request, postId)
+	resp, err := s.postRepository.GetAllComments(request, postId)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -82,7 +91,7 @@ func (s *PostService) CreateComment(c *gin.Context) {
 	comment := domain.Comment{}
 	utils.BindJson(c, &comment)
 	log.Printf("Create comment %v by post %s", comment, postId)
-	resp, err := s.repository.CreateComment(comment, postId, utils.GetCurrentUserId(c))
+	resp, err := s.postRepository.CreateComment(comment, postId, utils.GetCurrentUserId(c))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -96,7 +105,7 @@ func (s *PostService) GetAllSubComment(c *gin.Context) {
 	commentId := c.Param("commentId")
 	utils.BindQuery(c, &request)
 	log.Printf("Get all commets %v by post %s", request, commentId)
-	resp, err := s.repository.GetAllComments(request, commentId)
+	resp, err := s.postRepository.GetAllComments(request, commentId)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)

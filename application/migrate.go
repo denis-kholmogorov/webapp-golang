@@ -73,7 +73,7 @@ time: datetime .
 isBlocked: bool .
 type: string .
 likes: [uid] .
-tags: [uid] .
+tagged: [uid] @reverse .
 comments: [uid] .
 `
 const CreateCommentType = `type Comment {
@@ -106,6 +106,12 @@ imagePath: string .
 isDeleted: bool .
 isBlocked: bool .
 comments: [uid] .
+`
+
+const CreateTagType = `type Tag {
+    name
+}
+name: string @index(hash) .
 `
 
 const CreateCaptchaType = `type Captcha {

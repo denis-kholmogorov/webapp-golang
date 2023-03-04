@@ -70,6 +70,7 @@ func (r PostRepository) Create(post *domain.Post, authorId string) (*string, err
 	post.CreatedOn = &timeNow
 	post.UpdateOn = &timeNow
 	post.AuthorId = authorId
+	post.Tags = []string{} //TODO проблема с заполнением тегов
 	author := domain.Account{Uid: authorId, Posts: []domain.Post{*post}}
 	authorm, err := json.Marshal(author)
 	if err != nil {
@@ -183,7 +184,7 @@ var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
 	authorId
 	title
 	time
-	tags
+	tagged
 	timeChanged
 	type
 	isDeleted
@@ -209,7 +210,7 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
 	authorId
 	title
 	time
-	tags
+	tagged
 	timeChanged
 	type
 	isDeleted

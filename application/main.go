@@ -106,6 +106,9 @@ func startDbMigrate(conn *dgo.Dgraph) {
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCommentType,
 	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateTagType,
+	})
 	txn := conn.NewTxn()
 
 	if isDropFirst() {

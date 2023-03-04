@@ -87,12 +87,12 @@ func (s *AccountService) FindAll(c *gin.Context) {
 //	person := domain.Account{}
 //	accountSearch := domain.AccountSearchDto{}
 //	bindQuery(c, &accountSearch)
-//	spec := repository.SpecBuilder().
+//	spec := postRepository.SpecBuilder().
 //		Like(accountSearch.LastName, "LastName", true).
 //		Or().
 //		Equals(accountSearch.FirstName, "FirstName")
 //
-//	domainPerson, err := s.repository.FindAllBySpec(person, spec)
+//	domainPerson, err := s.postRepository.FindAllBySpec(person, spec)
 //	if err != nil {
 //		log.Printf(err.Error())
 //		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %q not found", accountSearch))
@@ -116,7 +116,7 @@ func (s *AccountService) FindAll(c *gin.Context) {
 //	account := domain.Account{}
 //	bindJson(c, &account)
 //	log.Printf("Create new account %v", account)
-//	id, err := s.repository.Create(account)
+//	id, err := s.postRepository.Create(account)
 //	if err != nil {
 //		log.Println(err)
 //		c.AbortWithError(http.StatusBadRequest, err)
@@ -129,7 +129,7 @@ func (s *AccountService) FindAll(c *gin.Context) {
 //	var person domain.Account
 //	bindJson(c, &person)
 //	log.Printf("Update person %v", person)
-//	id, err := s.repository.Update(person)
+//	id, err := s.postRepository.Update(person)
 //	if err != nil {
 //		log.Panic(c.AbortWithError(http.StatusBadRequest, err))
 //	} else {
@@ -140,7 +140,7 @@ func (s *AccountService) FindAll(c *gin.Context) {
 //func (s *AccountService) DeleteById(c *gin.Context) {
 //	var person domain.Account
 //	id := c.Param("id")
-//	_, err := s.repository.DeleteById(person, id)
+//	_, err := s.postRepository.DeleteById(person, id)
 //	if err != nil {
 //		log.Panic(c.AbortWithError(http.StatusBadRequest, err))
 //	} else {
