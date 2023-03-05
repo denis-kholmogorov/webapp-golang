@@ -100,14 +100,14 @@ func (r PostRepository) Update(post *domain.Post) (*string, error) {
 	post.UpdateOn = &timeNow
 	postm, err := json.Marshal(post)
 	if err != nil {
-		log.Printf("PostRepository:save() Error marhalling post %s", err)
-		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
+		log.Printf("PostRepository:Update() Error marhalling post %s", err)
+		return nil, fmt.Errorf("PostRepository:Update() Error marhalling post %s", err)
 	}
 	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: postm, CommitNow: true})
-	//if err != nil || mutate.Uids != nil {
-	//	log.Printf("PostRepository:save() Error mutate %s", err)
-	//	return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
-	//}
+	if err != nil {
+		log.Printf("PostRepository:Update() Error mutate %s", err)
+		return nil, fmt.Errorf("PostRepository:Update() Error mutate %s", err)
+	}
 	return nil, nil
 }
 

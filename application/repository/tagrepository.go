@@ -26,11 +26,39 @@ func GetTagRepository() *TagRepository {
 	return tagRepo
 }
 
-func (r TagRepository) CreateIfNotExists(post *domain.Post) error {
+func (r TagRepository) Update(post *domain.Post) error {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	var err error
+	err = deleteEdgesTags(ctx, txn, post.Id)
+	if err != nil {
+		err = txn.Discard(ctx)
+		return err
+	}
+	for i, _ := range post.Tags {
+		err = r.getByNane(ctx, txn, &post.Tags[i])
+		if err != nil {
+			err = txn.Discard(ctx)
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("TagRepository:FindAll() Error query %s", err)
+		return fmt.Errorf("TagRepository:FindAll() Error query %s", err)
+	}
+	err = txn.Commit(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func (r TagRepository) Create(post *domain.Post) error {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
 	var err error
 	for i, _ := range post.Tags {
-		err := r.getByNane(&post.Tags[i])
+		err := r.getByNane(ctx, txn, &post.Tags[i])
 		if err != nil {
 			break
 		}
@@ -40,12 +68,9 @@ func (r TagRepository) CreateIfNotExists(post *domain.Post) error {
 		return fmt.Errorf("TagRepository:FindAll() Error query %s", err)
 	}
 	return nil
-
 }
 
-func (r TagRepository) getByNane(tag *domain.Tag) error {
-	ctx := context.Background()
-	txn := r.conn.NewReadOnlyTxn()
+func (r TagRepository) getByNane(ctx context.Context, txn *dgo.Txn, tag *domain.Tag) error {
 	var vars *api.Response
 	var err error
 	vars, err = txn.QueryWithVars(ctx, getTagByName, map[string]string{"$name": tag.Name}) //TODO посмотреть другой вариант
@@ -62,6 +87,13 @@ func (r TagRepository) getByNane(tag *domain.Tag) error {
 	}
 	return nil
 
+}
+
+func deleteEdgesTags(ctx context.Context, txn *dgo.Txn, id string) error {
+	mu := &api.Mutation{}
+	dgo.DeleteEdges(mu, id, "tags")
+	_, err := txn.Mutate(ctx, mu)
+	return err
 }
 
 var getTagByName = `query Tag($name: string)
