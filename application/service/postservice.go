@@ -43,13 +43,12 @@ func (s *PostService) Create(c *gin.Context) {
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
 	authorId := utils.GetCurrentUserId(c)
-	tags, err := s.tagRepository.CreateIfNotExists(post.Tags)
+	err := s.tagRepository.CreateIfNotExists(&post)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	post.Tagged = tags
 	_, err = s.postRepository.Create(&post, authorId)
 	if err != nil {
 		log.Println(err)
@@ -63,7 +62,13 @@ func (s *PostService) Update(c *gin.Context) {
 	post := domain.Post{}
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
-	_, err := s.postRepository.Update(&post)
+	err := s.tagRepository.CreateIfNotExists(&post)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	_, err = s.postRepository.Update(&post)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)

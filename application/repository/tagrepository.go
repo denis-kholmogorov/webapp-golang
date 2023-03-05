@@ -26,42 +26,41 @@ func GetTagRepository() *TagRepository {
 	return tagRepo
 }
 
-func (r TagRepository) CreateIfNotExists(names []string) (t []domain.Tag, e error) {
+func (r TagRepository) CreateIfNotExists(post *domain.Post) error {
 
 	var err error
-	var tags []domain.Tag
-	for _, name := range names {
-		tag, err := r.getByNane(name)
+	for i, _ := range post.Tags {
+		err := r.getByNane(&post.Tags[i])
 		if err != nil {
 			break
 		}
-		tags = append(tags, tag)
 	}
 	if err != nil {
 		log.Printf("TagRepository:FindAll() Error query %s", err)
-		return nil, fmt.Errorf("TagRepository:FindAll() Error query %s", err)
+		return fmt.Errorf("TagRepository:FindAll() Error query %s", err)
 	}
-	return tags, nil
+	return nil
 
 }
 
-func (r TagRepository) getByNane(name string) (t domain.Tag, e error) {
+func (r TagRepository) getByNane(tag *domain.Tag) error {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
 	var err error
-	vars, err = txn.QueryWithVars(ctx, getTagByName, map[string]string{"$name": name}) //TODO посмотреть другой вариант
+	vars, err = txn.QueryWithVars(ctx, getTagByName, map[string]string{"$name": tag.Name}) //TODO посмотреть другой вариант
 	response := domain.TagList{}
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
 		log.Printf("TagRepository:getByNane() Error Unmarshal %s", err)
-		return t, fmt.Errorf("TagRepository:getByNane() Error Unmarshal %s", err)
+		return fmt.Errorf("TagRepository:getByNane() Error Unmarshal %s", err)
 	}
-	if len(response.List) == 0 {
-		tag := domain.Tag{Name: name, DType: []string{"Tag"}}
-		return tag, nil
+	tag.DType = []string{"Tag"}
+	if len(response.List) != 0 {
+		tag.Id = response.List[0].Id
+		return nil
 	}
-	return response.List[0], nil
+	return nil
 
 }
 

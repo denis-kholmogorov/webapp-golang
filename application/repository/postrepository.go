@@ -57,6 +57,7 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto) (post *dto.PageRespo
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
 	}
+
 	response.SetPage(searchDto.Size, searchDto.Page)
 	return &response, nil
 
@@ -70,7 +71,7 @@ func (r PostRepository) Create(post *domain.Post, authorId string) (*string, err
 	post.CreatedOn = &timeNow
 	post.UpdateOn = &timeNow
 	post.AuthorId = authorId
-	post.Tags = []string{} //TODO проблема с заполнением тегов
+	//post.Tags = []string{} //TODO проблема с заполнением тегов
 	author := domain.Account{Uid: authorId, Posts: []domain.Post{*post}}
 	authorm, err := json.Marshal(author)
 	if err != nil {
@@ -97,17 +98,16 @@ func (r PostRepository) Update(post *domain.Post) (*string, error) {
 	post.DType = []string{"Post"}
 	post.Uid = post.Id
 	post.UpdateOn = &timeNow
-
 	postm, err := json.Marshal(post)
 	if err != nil {
 		log.Printf("PostRepository:save() Error marhalling post %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
 	}
-	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: postm, CommitNow: true})
-	if err != nil || mutate.Uids != nil {
-		log.Printf("PostRepository:save() Error mutate %s", err)
-		return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
-	}
+	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: postm, CommitNow: true})
+	//if err != nil || mutate.Uids != nil {
+	//	log.Printf("PostRepository:save() Error mutate %s", err)
+	//	return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
+	//}
 	return nil, nil
 }
 
@@ -183,14 +183,16 @@ var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
 	postText
 	authorId
 	title
-	time
-	tagged
+	time 
 	timeChanged
 	type
 	isDeleted
 	isBlocked
 	imagePath
 	commentsCount: count(comments)
+	tags {
+	name
+}
     }
     count(func: anyoftext(postText, $text)){
 		totalElement:count(uid)
@@ -210,13 +212,15 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
 	authorId
 	title
 	time
-	tagged
 	timeChanged
 	type
 	isDeleted
 	isBlocked
 	imagePath
 	commentsCount: count(comments)
+	tags {
+	name
+}
   }
   count(func: uid(A)){
 		totalElement:count(uid)

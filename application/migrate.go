@@ -73,7 +73,7 @@ time: datetime .
 isBlocked: bool .
 type: string .
 likes: [uid] .
-tagged: [uid] @reverse .
+tags: [uid] @reverse .
 comments: [uid] .
 `
 const CreateCommentType = `type Comment {
