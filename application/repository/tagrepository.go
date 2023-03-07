@@ -26,6 +26,28 @@ func GetTagRepository() *TagRepository {
 	return tagRepo
 }
 
+func (r TagRepository) Create(post *domain.Post) error {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	var err error
+	for i, _ := range post.Tags {
+		err = r.getByNane(ctx, txn, &post.Tags[i])
+		if err != nil {
+			break
+		}
+	}
+	if err != nil {
+		err = txn.Discard(ctx)
+		log.Printf("TagRepository:FindAll() Error query %s", err)
+		return fmt.Errorf("TagRepository:FindAll() Error query %s", err)
+	}
+	err = txn.Commit(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r TagRepository) Update(post *domain.Post) error {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
@@ -49,23 +71,6 @@ func (r TagRepository) Update(post *domain.Post) error {
 	err = txn.Commit(ctx)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-func (r TagRepository) Create(post *domain.Post) error {
-	ctx := context.Background()
-	txn := r.conn.NewReadOnlyTxn()
-	var err error
-	for i, _ := range post.Tags {
-		err := r.getByNane(ctx, txn, &post.Tags[i])
-		if err != nil {
-			break
-		}
-	}
-	if err != nil {
-		log.Printf("TagRepository:FindAll() Error query %s", err)
-		return fmt.Errorf("TagRepository:FindAll() Error query %s", err)
 	}
 	return nil
 }

@@ -109,6 +109,9 @@ func startDbMigrate(conn *dgo.Dgraph) {
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateTagType,
 	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateLikeType,
+	})
 	txn := conn.NewTxn()
 
 	if isDropFirst() {

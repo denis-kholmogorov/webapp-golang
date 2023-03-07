@@ -52,6 +52,7 @@ const CreatePostType = `type Post {
 	authorId
 	postText
 	title
+	likes
     isDeleted
     publishDate
     myLike
@@ -72,15 +73,17 @@ likeAmount: int .
 time: datetime .
 isBlocked: bool .
 type: string .
-likes: [uid] .
+likes: [uid] @reverse .
 tags: [uid] @reverse .
 comments: [uid] .
 `
+
 const CreateCommentType = `type Comment {
 	commentText
 	authorId
 	parentId
 	postId
+	likes
 	commentType
 	commentsCount
 	myLike
@@ -112,6 +115,12 @@ const CreateTagType = `type Tag {
     name
 }
 name: string @index(hash) .
+`
+
+const CreateLikeType = `type Like {
+    authorId
+}
+authorId: string @index(hash) .
 `
 
 const CreateCaptchaType = `type Captcha {

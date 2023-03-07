@@ -22,6 +22,12 @@ func NextDay(day Weekday) Weekday {
 }
 
 func main() {
+
+	m := map[string]string{"Четвертый": " пост"}
+	for s, s2 := range m {
+		fmt.Println(s + s2)
+
+	}
 	now := time.Now()
 	t := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	//var today Weekday = Sunday

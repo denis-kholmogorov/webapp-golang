@@ -31,12 +31,13 @@ func GetPostRepository() *PostRepository {
 	return postRepo
 }
 
-func (r PostRepository) GetAll(searchDto dto.PostSearchDto) (post *dto.PageResponse, e error) {
+func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string) (post *dto.PageResponse, e error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
 	var err error
 	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
 	if len(searchDto.Text) == 0 {
@@ -142,41 +143,38 @@ func (r PostRepository) CreateComment(comment domain.Comment, postId string, aut
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	timeNow := time.Now().UTC()
+	comment.Uid = "_:comment"
 	comment.DType = []string{"Comment"}
 	comment.AuthorId = authorId
 	comment.Time = &timeNow
 	comment.PostId = postId
 	comment.TimeChanged = &timeNow
 	if len(comment.ParentId) > 0 {
-		parent := domain.Comment{Uid: comment.ParentId}
 		comment.CommentType = "COMMENT"
-		parent.Comments = []domain.Comment{comment}
-		marshal, err = json.Marshal(parent)
+		marshal, err = json.Marshal(comment)
 	} else {
-		parent := domain.Post{Uid: postId}
 		comment.CommentType = "POST"
-		parent.Comments = []domain.Comment{comment}
-		marshal, err = json.Marshal(parent)
+		marshal, err = json.Marshal(comment)
 	}
 
 	if err != nil {
 		log.Printf("PostRepository:save() Error marhalling post %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
 	}
-	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: marshal, CommitNow: true})
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: marshal})
 	if err != nil {
 		log.Printf("PostRepository:save() Error mutate %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
 	}
-	commentId := mutate.Uids[""]
-	//if len(postId) == 0 {
-	//	log.Printf("PostRepository:save() capthcaId not found")
-	//	return nil, fmt.Errorf("PostRepository:Create() capthcaId not found")
-	//}
-	return &commentId, nil
+	err = AddEdge(txn, ctx, postId, "comments", mutate.GetUids()["comment"], true)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
-var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
+var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $first: int, $offset: int)
 {
     content(func: anyoftext(postText, $text), first: $first, offset: $offset, orderdesc: time) {
 	id:uid
@@ -189,17 +187,19 @@ var getAllPostsByText = `query Posts($text: string, $first: int, $offset: int)
 	isDeleted
 	isBlocked
 	imagePath
+	myLike: count(likes @filter(eq(authorId,$currentUserId)))
+	likeAmount: count(likes)
 	commentsCount: count(comments)
 	tags {
-	name
-}
+		name
+	}
     }
     count(func: anyoftext(postText, $text)){
 		totalElement:count(uid)
   }
 }`
 
-var getAllPosts = `query Posts($accountId: string, $first: int, $offset: int)
+var getAllPosts = `query Posts($currentUserId: string, $accountId: string, $first: int, $offset: int)
 {
 var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
   content:posts @filter(eq(isDeleted, false)){
@@ -217,6 +217,8 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
 	isDeleted
 	isBlocked
 	imagePath
+	myLike: count(likes @filter(eq(authorId,$currentUserId)))
+	likeAmount: count(likes)
 	commentsCount: count(comments)
 	tags {
 	name
