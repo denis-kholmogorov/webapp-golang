@@ -112,12 +112,13 @@ func (r PostRepository) Update(post *domain.Post) (*string, error) {
 	return nil, nil
 }
 
-func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string) (post *dto.PageResponse, e error) {
+func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string, currentUserId string) (post *dto.PageResponse, e error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
 	var err error
 	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
 	variables["$first"] = strconv.Itoa(pageDto.Size)
 	variables["$offset"] = strconv.Itoa(pageDto.Size * utils.GetPageNumber(&pageDto))
 	variables["$parentId"] = parentId
@@ -151,6 +152,7 @@ func (r PostRepository) CreateComment(comment domain.Comment, postId string, aut
 	comment.TimeChanged = &timeNow
 	if len(comment.ParentId) > 0 {
 		comment.CommentType = "COMMENT"
+		postId = comment.ParentId
 		marshal, err = json.Marshal(comment)
 	} else {
 		comment.CommentType = "POST"
@@ -229,7 +231,7 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
   }
 }
 `
-var getAllComments = `query Comments($parentId: string, $first: int, $offset: int)
+var getAllComments = `query Comments($parentId: string, $currentUserId: string, $first: int, $offset: int)
 {
 var(func: uid($parentId)) {
 	A as comments
@@ -242,8 +244,8 @@ var(func: uid($parentId)) {
 	postId
 	commentType
 	commentsCount: count(comments)
-	myLike
-	likeAmount
+    myLike: count(likes @filter(eq(authorId,$currentUserId)))
+	likeAmount: count(likes)
 	timeChanged
 	time
 	imagePath

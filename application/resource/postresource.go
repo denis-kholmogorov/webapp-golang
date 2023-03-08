@@ -14,7 +14,7 @@ func PostResource(e *gin.Engine, service *service.PostService) {
 	e.POST("api/v1/post/:postId/comment", service.CreateComment)
 	e.POST("api/v1/post/:postId/like", service.CreateLike)
 	e.DELETE("api/v1/post/:postId/like", service.DeleteLike)
-	//e.POST("api/v1/post/:postId/comment", service.CreateCommentLike)
-	//e.DELETE("api/v1/post/:postId/comment", service.DeleteCommentLike)
+	e.POST("api/v1/post/:postId/comment/:commentId/like", service.CreateCommentLike)
+	e.DELETE("api/v1/post/:postId/comment/:commentId/like", service.DeleteCommentLike)
 
 }

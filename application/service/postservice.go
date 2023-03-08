@@ -85,7 +85,7 @@ func (s *PostService) GetAllComment(c *gin.Context) {
 	postId := c.Param("postId")
 	utils.BindQuery(c, &request)
 	log.Printf("Get all commets %v by post %s", request, postId)
-	resp, err := s.postRepository.GetAllComments(request, postId)
+	resp, err := s.postRepository.GetAllComments(request, postId, utils.GetCurrentUserId(c))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -113,7 +113,7 @@ func (s *PostService) GetAllSubComment(c *gin.Context) {
 	commentId := c.Param("commentId")
 	utils.BindQuery(c, &request)
 	log.Printf("Get all commets %v by post %s", request, commentId)
-	resp, err := s.postRepository.GetAllComments(request, commentId)
+	resp, err := s.postRepository.GetAllComments(request, commentId, utils.GetCurrentUserId(c))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -123,9 +123,9 @@ func (s *PostService) GetAllSubComment(c *gin.Context) {
 }
 
 func (s *PostService) CreateLike(c *gin.Context) {
-	postId := c.Param("postId")
-	log.Printf("Create like on post %s", postId)
-	resp, err := s.likeRepository.CreateLike(postId, utils.GetCurrentUserId(c))
+	parentId := c.Param("postId")
+	log.Printf("Create like on parentId %s", parentId)
+	resp, err := s.likeRepository.CreateLike(parentId, utils.GetCurrentUserId(c))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -135,9 +135,33 @@ func (s *PostService) CreateLike(c *gin.Context) {
 }
 
 func (s *PostService) DeleteLike(c *gin.Context) {
-	postId := c.Param("postId")
-	log.Printf("Create like on post %s", postId)
-	resp, err := s.likeRepository.DeleteLike(postId, utils.GetCurrentUserId(c))
+	parentId := c.Param("postId")
+	log.Printf("Create like on post %s", parentId)
+	resp, err := s.likeRepository.DeleteLike(parentId, utils.GetCurrentUserId(c))
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func (s *PostService) CreateCommentLike(c *gin.Context) {
+	parentId := c.Param("commentId")
+	log.Printf("Create like on parentId %s", parentId)
+	resp, err := s.likeRepository.CreateLike(parentId, utils.GetCurrentUserId(c))
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func (s *PostService) DeleteCommentLike(c *gin.Context) {
+	parentId := c.Param("commentId")
+	log.Printf("Create like on parentId %s", parentId)
+	resp, err := s.likeRepository.DeleteLike(parentId, utils.GetCurrentUserId(c))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)

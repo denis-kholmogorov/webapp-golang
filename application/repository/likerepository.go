@@ -26,10 +26,10 @@ func GetLikeRepository() *LikeRepository {
 	return likeRepo
 }
 
-func (r LikeRepository) CreateLike(postId string, authorId string) (bool, error) {
+func (r LikeRepository) CreateLike(parentId string, authorId string) (bool, error) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
-	exist, err := isLikeExist(ctx, txn, postId, authorId)
+	exist, err := isLikeExist(ctx, txn, parentId, authorId)
 	if err != nil {
 		txn.Discard(ctx)
 		return false, err
@@ -52,17 +52,17 @@ func (r LikeRepository) CreateLike(postId string, authorId string) (bool, error)
 		return false, fmt.Errorf("LikeRepository:Create() Error mutate %s", err)
 	}
 	likeId := mutate.GetUids()["like"]
-	err = AddEdge(txn, ctx, postId, "likes", likeId, true)
+	err = AddEdge(txn, ctx, parentId, "likes", likeId, true)
 	if err != nil {
 		return false, err
 	}
 	return exist, err
 }
 
-func (r LikeRepository) DeleteLike(postId string, authorId string) (bool, error) {
+func (r LikeRepository) DeleteLike(parentId string, authorId string) (bool, error) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
-	like, err := getLikeByAuthorAndPostId(ctx, txn, postId, authorId)
+	like, err := getLikeByAuthorAndPostId(ctx, txn, parentId, authorId)
 	if err != nil {
 		txn.Discard(ctx)
 		return false, err
@@ -73,7 +73,7 @@ func (r LikeRepository) DeleteLike(postId string, authorId string) (bool, error)
 		txn.Discard(ctx)
 		return false, fmt.Errorf("LikeRepository:Create() Error marhalling post %s", err)
 	}
-	err = RemoveEdge(txn, ctx, postId, "likes", like.Uid, false)
+	err = RemoveEdge(txn, ctx, parentId, "likes", like.Uid, false)
 	if err != nil {
 		txn.Discard(ctx)
 		return false, fmt.Errorf("LikeRepository:DeleteLike() Error mutate DeleteEdges %s", err)
@@ -86,9 +86,9 @@ func (r LikeRepository) DeleteLike(postId string, authorId string) (bool, error)
 	return true, err
 }
 
-func getLikeByAuthorAndPostId(ctx context.Context, txn *dgo.Txn, postId string, authorId string) (*domain.Like, error) {
+func getLikeByAuthorAndPostId(ctx context.Context, txn *dgo.Txn, parentId string, authorId string) (*domain.Like, error) {
 	variables := make(map[string]string)
-	variables["$postId"] = postId
+	variables["$parentId"] = parentId
 	variables["$authorId"] = authorId
 	vars, err := txn.QueryWithVars(ctx, getLikeByPostIdAndAuthorId, variables)
 	if err != nil {
@@ -100,14 +100,14 @@ func getLikeByAuthorAndPostId(ctx context.Context, txn *dgo.Txn, postId string, 
 		return nil, err
 	}
 	if len(like.List) == 0 {
-		return nil, fmt.Errorf("like of authorId=%s not found for delete postId=%s", authorId, postId)
+		return nil, fmt.Errorf("like of authorId=%s not found for delete parentId=%s", authorId, parentId)
 	}
 	return &like.List[0], err
 }
 
-func isLikeExist(ctx context.Context, txn *dgo.Txn, postId string, authorId string) (bool, error) {
+func isLikeExist(ctx context.Context, txn *dgo.Txn, parentId string, authorId string) (bool, error) {
 	variables := make(map[string]string)
-	variables["$postId"] = postId
+	variables["$parentId"] = parentId
 	variables["$authorId"] = authorId
 	vars, err := txn.QueryWithVars(ctx, existLike, variables)
 	if err != nil {
@@ -119,17 +119,17 @@ func isLikeExist(ctx context.Context, txn *dgo.Txn, postId string, authorId stri
 	return exist.Exists[0].Count > 0, err
 }
 
-var existLike = `query Exists($postId: string, $authorId: string)
+var existLike = `query Exists($parentId: string, $authorId: string)
 {
-exists(func: uid($postId)){
+exists(func: uid($parentId)){
 	count:count(likes @filter(eq(authorId,$authorId)))
 }
 }
 `
 
-var getLikeByPostIdAndAuthorId = `query Exists($postId: string, $authorId: string)
+var getLikeByPostIdAndAuthorId = `query Exists($parentId: string, $authorId: string)
 {
-var(func: uid($postId)){
+var(func: uid($parentId)){
   likes @filter(eq(authorId, $authorId)){
       A as uid
     }
