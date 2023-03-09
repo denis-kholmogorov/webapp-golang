@@ -60,6 +60,7 @@ const CreatePostType = `type Post {
 	likeAmount
 	time
 	isBlocked
+	tags
 	type
 }
 authorId: string @index(hash) .

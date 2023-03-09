@@ -72,44 +72,37 @@ func (r PostRepository) Create(post *domain.Post, authorId string) (*string, err
 	post.CreatedOn = &timeNow
 	post.UpdateOn = &timeNow
 	post.AuthorId = authorId
-	//post.Tags = []string{} //TODO проблема с заполнением тегов
 	author := domain.Account{Uid: authorId, Posts: []domain.Post{*post}}
 	authorm, err := json.Marshal(author)
 	if err != nil {
 		log.Printf("PostRepository:save() Error marhalling post %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
 	}
-	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: authorm, CommitNow: true})
+	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: authorm, CommitNow: true})
 	if err != nil {
 		log.Printf("PostRepository:save() Error mutate %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
 	}
-	postId := mutate.Uids[""]
-	//if len(postId) == 0 {
-	//	log.Printf("PostRepository:save() capthcaId not found")
-	//	return nil, fmt.Errorf("PostRepository:Create() capthcaId not found")
-	//}
-	return &postId, nil
+
+	return nil, nil
 }
 
-func (r PostRepository) Update(post *domain.Post) (*string, error) {
+func (r PostRepository) Update(post *domain.Post, tagIds []string) error {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	timeNow := time.Now().UTC()
 	post.DType = []string{"Post"}
 	post.Uid = post.Id
-	post.UpdateOn = &timeNow
-	postm, err := json.Marshal(post)
-	if err != nil {
-		log.Printf("PostRepository:Update() Error marhalling post %s", err)
-		return nil, fmt.Errorf("PostRepository:Update() Error marhalling post %s", err)
+	fields := map[string]string{
+		"timeChanged": timeNow.String(),
+		"title":       post.Title,
+		"postText":    post.PostText,
 	}
-	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: postm, CommitNow: true})
+	err := UpdateNodeFields(txn, ctx, post.Id, fields, false)
 	if err != nil {
-		log.Printf("PostRepository:Update() Error mutate %s", err)
-		return nil, fmt.Errorf("PostRepository:Update() Error mutate %s", err)
+		return err
 	}
-	return nil, nil
+	return AddNodesToEdge(txn, ctx, post.Id, "tags", tagIds, true)
 }
 
 func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string, currentUserId string) (post *dto.PageResponse, e error) {
@@ -174,6 +167,14 @@ func (r PostRepository) CreateComment(comment domain.Comment, postId string, aut
 	}
 
 	return nil, nil
+}
+
+func (r PostRepository) UpdateComment(comment domain.Comment) error {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	timeNow := time.Now().UTC()
+	fields := map[string]string{"timeChanged": timeNow.String(), "commentText": comment.CommentText}
+	return UpdateNodeFields(txn, ctx, comment.Id, fields, true)
 }
 
 var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $first: int, $offset: int)

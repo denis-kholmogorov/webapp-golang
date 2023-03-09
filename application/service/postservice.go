@@ -65,18 +65,18 @@ func (s *PostService) Update(c *gin.Context) {
 	post := domain.Post{}
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
-	err := s.tagRepository.Update(&post)
+	ids, err := s.tagRepository.Update(&post)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	_, err = s.postRepository.Update(&post)
+	err = s.postRepository.Update(&post, ids)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 	} else {
-		c.JSON(http.StatusCreated, "&id")
+		c.JSON(http.StatusCreated, "")
 	}
 }
 
@@ -105,6 +105,19 @@ func (s *PostService) CreateComment(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 	} else {
 		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func (s *PostService) UpdateComment(c *gin.Context) {
+	comment := domain.Comment{}
+	utils.BindJson(c, &comment)
+	log.Printf("Update comment %v", comment.Id)
+	err := s.postRepository.UpdateComment(comment)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, "")
 	}
 }
 

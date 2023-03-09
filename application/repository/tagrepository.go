@@ -31,7 +31,7 @@ func (r TagRepository) Create(post *domain.Post) error {
 	txn := r.conn.NewTxn()
 	var err error
 	for i, _ := range post.Tags {
-		err = r.getByNane(ctx, txn, &post.Tags[i])
+		err = r.getByName(ctx, txn, &post.Tags[i])
 		if err != nil {
 			break
 		}
@@ -48,42 +48,73 @@ func (r TagRepository) Create(post *domain.Post) error {
 	return nil
 }
 
-func (r TagRepository) Update(post *domain.Post) error {
+func (r TagRepository) Update(post *domain.Post) ([]string, error) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	var err error
 	err = deleteEdgesTags(ctx, txn, post.Id)
 	if err != nil {
 		err = txn.Discard(ctx)
-		return err
+		return nil, err
 	}
+	var tagIds []string
 	for i, _ := range post.Tags {
-		err = r.getByNane(ctx, txn, &post.Tags[i])
+		id, err := r.getIdByName(ctx, txn, post.Tags[i].Name)
 		if err != nil {
-			err = txn.Discard(ctx)
 			break
 		}
+		tagIds = append(tagIds, id)
 	}
 	if err != nil {
+		err = txn.Discard(ctx)
 		log.Printf("TagRepository:FindAll() Error query %s", err)
-		return fmt.Errorf("TagRepository:FindAll() Error query %s", err)
+		return nil, fmt.Errorf("TagRepository:FindAll() Error query %s", err)
 	}
 	err = txn.Commit(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return tagIds, err
 }
 
-func (r TagRepository) getByNane(ctx context.Context, txn *dgo.Txn, tag *domain.Tag) error {
+func (r TagRepository) getIdByName(ctx context.Context, txn *dgo.Txn, tagName string) (string, error) {
+	var vars *api.Response
+	var err error
+	vars, err = txn.QueryWithVars(ctx, getTagByName, map[string]string{"$name": tagName}) //TODO посмотреть другой вариант
+	response := domain.TagList{}
+	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		log.Printf("TagRepository:getIdByName() Error Unmarshal %s", err)
+		return "", fmt.Errorf("TagRepository:getIdByName() Error Unmarshal %s", err)
+	}
+	if len(response.List) != 0 {
+		return response.List[0].Id, nil
+	}
+	tag := domain.Tag{Uid: "_:tag", Name: tagName, DType: []string{"Tag"}}
+	tagm, err := json.Marshal(tag)
+	if err != nil {
+		log.Printf("TagRepository:getIdByName() Error marhalling tagName %s", err)
+		return "", fmt.Errorf("TagRepository:getIdByName() Error marhalling tagName %s", err)
+	}
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: tagm})
+	if err != nil {
+		log.Printf("TagRepository:getIdByName() Error mutate %s", err)
+		return "", fmt.Errorf("TagRepository:getIdByName() Error mutate %s", err)
+	}
+	tagId := mutate.GetUids()["tag"]
+	return tagId, err
+
+}
+
+func (r TagRepository) getByName(ctx context.Context, txn *dgo.Txn, tag *domain.Tag) error {
 	var vars *api.Response
 	var err error
 	vars, err = txn.QueryWithVars(ctx, getTagByName, map[string]string{"$name": tag.Name}) //TODO посмотреть другой вариант
 	response := domain.TagList{}
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
-		log.Printf("TagRepository:getByNane() Error Unmarshal %s", err)
-		return fmt.Errorf("TagRepository:getByNane() Error Unmarshal %s", err)
+		log.Printf("TagRepository:getByName() Error Unmarshal %s", err)
+		return fmt.Errorf("TagRepository:getByName() Error Unmarshal %s", err)
 	}
 	tag.DType = []string{"Tag"}
 	if len(response.List) != 0 {
