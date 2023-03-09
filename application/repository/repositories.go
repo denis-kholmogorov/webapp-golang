@@ -20,7 +20,7 @@ func GetDGraphConn() *DGraphConn {
 	return conn
 }
 
-func RemoveEdge(txn *dgo.Txn, ctx context.Context, objectID, edgeName, edgeUID string, commitNow bool) error {
+func DeleteEdge(txn *dgo.Txn, ctx context.Context, objectID, edgeName, edgeUID string, commitNow bool) error {
 	mu := &api.Mutation{CommitNow: commitNow,
 		Del: []*api.NQuad{
 			{
@@ -35,6 +35,20 @@ func RemoveEdge(txn *dgo.Txn, ctx context.Context, objectID, edgeName, edgeUID s
 		return err
 	}
 	return nil
+}
+
+func Delete(txn *dgo.Txn, ctx context.Context, objectID string, commitNow bool) error {
+	mu := &api.Mutation{CommitNow: commitNow,
+		Set: []*api.NQuad{
+			{
+				Subject:     objectID,
+				Predicate:   "isDeleted",
+				ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "true"}},
+			},
+		},
+	}
+	_, err := txn.Mutate(ctx, mu)
+	return err
 }
 
 func AddEdge(txn *dgo.Txn, ctx context.Context, objectID, edgeName, edgeUID string, commitNow bool) error {

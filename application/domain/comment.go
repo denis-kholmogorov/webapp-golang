@@ -16,8 +16,8 @@ type Comment struct {
 	TimeChanged   *time.Time `json:"timeChanged,omitempty"`
 	Time          *time.Time `json:"time,omitempty"`
 	ImagePath     string     `json:"imagePath,omitempty"`
-	IsBlocked     bool       `json:"isBlocked,omitempty"`
-	IsDeleted     bool       `json:"isDeleted,omitempty"`
+	IsBlocked     bool       `json:"isBlocked"`
+	IsDeleted     bool       `json:"isDeleted"`
 	DType         []string   `json:"dgraph.type,omitempty"`
 	Comments      []Comment  `json:"comments,omitempty"`
 }

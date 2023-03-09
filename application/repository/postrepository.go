@@ -143,6 +143,7 @@ func (r PostRepository) CreateComment(comment domain.Comment, postId string, aut
 	comment.Time = &timeNow
 	comment.PostId = postId
 	comment.TimeChanged = &timeNow
+	comment.IsDeleted = false
 	if len(comment.ParentId) > 0 {
 		comment.CommentType = "COMMENT"
 		postId = comment.ParentId
@@ -177,9 +178,15 @@ func (r PostRepository) UpdateComment(comment domain.Comment) error {
 	return UpdateNodeFields(txn, ctx, comment.Id, fields, true)
 }
 
+func (r PostRepository) Delete(postId string) error {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	return Delete(txn, ctx, postId, true)
+}
+
 var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $first: int, $offset: int)
 {
-    content(func: anyoftext(postText, $text), first: $first, offset: $offset, orderdesc: time) {
+    content(func: anyoftext(postText, $text), first: $first, offset: $offset, orderdesc: time) @filter(eq(isDeleted, false)) {
 	id:uid
 	postText
 	authorId
@@ -192,7 +199,7 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $fir
 	imagePath
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
 	likeAmount: count(likes)
-	commentsCount: count(comments)
+	commentsCount: count(comments @filter(eq(isDeleted, false)))
 	tags {
 		name
 	}
@@ -222,7 +229,7 @@ var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
 	imagePath
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
 	likeAmount: count(likes)
-	commentsCount: count(comments)
+	commentsCount: count(comments @filter(eq(isDeleted, false))) 
 	tags {
 	name
 }
@@ -237,14 +244,14 @@ var getAllComments = `query Comments($parentId: string, $currentUserId: string, 
 var(func: uid($parentId)) {
 	A as comments
 }
-  content(func: uid(A), orderdesc: timeChanged, first: $first, offset: $offset)  {
+  content(func: uid(A), orderdesc: timeChanged, first: $first, offset: $offset) @filter(eq(isDeleted, false)) {
 	id: uid
 	commentText
 	authorId
 	parentId
 	postId
 	commentType
-	commentsCount: count(comments)
+	commentsCount: count(comments  @filter(eq(isDeleted, false)))
     myLike: count(likes @filter(eq(authorId,$currentUserId)))
 	likeAmount: count(likes)
 	timeChanged

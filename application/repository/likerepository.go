@@ -67,13 +67,12 @@ func (r LikeRepository) DeleteLike(parentId string, authorId string) (bool, erro
 		txn.Discard(ctx)
 		return false, err
 	}
-
 	likem, err := json.Marshal(like)
 	if err != nil {
 		txn.Discard(ctx)
 		return false, fmt.Errorf("LikeRepository:Create() Error marhalling post %s", err)
 	}
-	err = RemoveEdge(txn, ctx, parentId, "likes", like.Uid, false)
+	err = DeleteEdge(txn, ctx, parentId, "likes", like.Uid, false)
 	if err != nil {
 		txn.Discard(ctx)
 		return false, fmt.Errorf("LikeRepository:DeleteLike() Error mutate DeleteEdges %s", err)

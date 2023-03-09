@@ -80,6 +80,18 @@ func (s *PostService) Update(c *gin.Context) {
 	}
 }
 
+func (s *PostService) Delete(c *gin.Context) {
+	postId := c.Param("postId")
+	log.Printf("Delete post %s", postId)
+	err := s.postRepository.Delete(postId)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, "")
+	}
+}
+
 func (s *PostService) GetAllComment(c *gin.Context) {
 	request := dto.PageRequest{}
 	postId := c.Param("postId")
@@ -113,6 +125,18 @@ func (s *PostService) UpdateComment(c *gin.Context) {
 	utils.BindJson(c, &comment)
 	log.Printf("Update comment %v", comment.Id)
 	err := s.postRepository.UpdateComment(comment)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithError(http.StatusBadRequest, err)
+	} else {
+		c.JSON(http.StatusOK, "")
+	}
+}
+
+func (s *PostService) DeleteComment(c *gin.Context) {
+	commentId := c.Param("commentId")
+	log.Printf("Delete post %s", commentId)
+	err := s.postRepository.Delete(commentId)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
