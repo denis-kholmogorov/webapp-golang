@@ -45,6 +45,7 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 		vars, err = txn.QueryWithVars(ctx, getAllPosts, variables)
 	} else {
 		variables["$text"] = searchDto.Text
+		variables["$author"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
 		vars, err = txn.QueryWithVars(ctx, getAllPostsByText, variables)
 	}
 
@@ -184,9 +185,25 @@ func (r PostRepository) Delete(postId string) error {
 	return Delete(txn, ctx, postId, true)
 }
 
-var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $first: int, $offset: int)
+//var(func: type(Tag)) @filter(eq(name,"новый пост", "первый пост","Второй пост"))  {
+//	~tags @filter(eq(isDeleted, false)){
+//		C as uid
+//	}
+//}
+
+var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $author: string, $first: int, $offset: int)
 {
-    content(func: anyoftext(postText, $text), first: $first, offset: $offset, orderdesc: time) @filter(eq(isDeleted, false)) {
+  var(func: anyoftext(postText, $text)) @filter(eq(isDeleted, false))  {
+    A as uid
+  	}
+
+  var(func: type(Account)) @filter(eq(isDeleted, false) and regexp(firstName, $author) or regexp(lastName, $author)){
+    posts @filter(eq(isDeleted, false)) {
+ 		B as uid
+    	}
+	}
+
+    content(func: uid(A,B), first: $first, offset: $offset, orderdesc: time) {
 	id:uid
 	postText
 	authorId
