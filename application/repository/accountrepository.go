@@ -14,6 +14,8 @@ import (
 	"web/application/utils"
 )
 
+const regexAuthor = "/(?i).*%s.*/"
+
 var accountRepo *AccountRepository
 var isInitializedAccountRepo bool
 
@@ -113,10 +115,11 @@ func (r AccountRepository) Update(account *domain.Account) (*string, error) {
 	return &account.Id, nil
 }
 
-func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageResponse, error) {
+func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId string) (*dto.PageResponse, error) {
 	variables := make(map[string]string)
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
+	variables["$currentId"] = currentId
 
 	query := createSearchQuery()
 
@@ -126,11 +129,10 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto) (*dto.PageRes
 	txn := r.conn.NewReadOnlyTxn()
 
 	if len(searchDto.Author) > 0 {
-		variables["$search"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
+		variables["$search"] = fmt.Sprintf(regexAuthor, searchDto.Author)
 		vars, err = txn.QueryWithVars(context.Background(), findByAuthor, variables)
 	} else {
 		addFilters(searchDto, variables, query)
-
 		vars, err = txn.QueryWithVars(context.Background(), fmt.Sprintf(findByParams, query[0], query[1]), variables)
 	}
 
@@ -158,8 +160,8 @@ func createSearchQuery() map[int]string {
 }
 
 func addFilters(searchDto dto.AccountSearchDto, variables map[string]string, query map[int]string) {
-	variables["$firstName"] = fmt.Sprintf("/.*%s.*/", searchDto.FirstName)
-	variables["$lastName"] = fmt.Sprintf("/.*%s.*/", searchDto.LastName)
+	variables["$firstName"] = fmt.Sprintf(regexAuthor, searchDto.FirstName)
+	variables["$lastName"] = fmt.Sprintf(regexAuthor, searchDto.LastName)
 
 	if searchDto.Country != "" {
 		variables["$country"] = searchDto.Country
@@ -219,9 +221,9 @@ var findById = `query AccountById($id: string)
 	}
 }`
 
-var findByParams = `query searchAuthor($firstName: string, $lastName: string%s, $first: int, $offset: int)
+var findByParams = `query searchAuthor($firstName: string, $lastName: string, $currentId: string,%s $first: int, $offset: int)
 {
-	var(func: type(Account)) @filter(regexp(firstName, $firstName) and regexp(lastName, $lastName) %s ){
+	var(func: type(Account)) @filter(not uid($currentId) and regexp(firstName, $firstName) and regexp(lastName, $lastName)%s ){
 	A as uid
 }
 	content(func: uid(A), orderdesc: firstName, first: $first, offset: $offset)  {
@@ -242,9 +244,9 @@ var findByParams = `query searchAuthor($firstName: string, $lastName: string%s, 
 	}
 }`
 
-var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int)
+var findByAuthor = `query searchAuthor($search: string, $currentId: string, $first: int, $offset: int)
 {
-	var(func: type(Account)) @filter(regexp(firstName, $search) or regexp(lastName, $search)){
+	var(func: type(Account)) @filter(not uid($currentId) and (regexp(firstName, $search) or regexp(lastName, $search))){
 	A as uid
 }
 	content(func: uid(A), orderdesc: firstName, first: $first, offset: $offset)  {
@@ -273,22 +275,3 @@ var andCountry = "and eq(country, $country)"
 var andCity = "and eq(city, $city)"
 var andAgeFrom = "and lt(birthDate, $ageFrom)"
 var andAgeTo = "and gt(birthDate, $ageTo)"
-
-//
-//var findByAuthor = `query searchAuthor($search: string, $first: int, $offset: int)
-//{ content(func: regexp(firstName, $search),first: $first, offset: $offset) @filter(eq(dgraph.type, Account) and eq(isDeleted, false))  {
-//		firstName
-//		lastName
-//		age
-//		isDeleted
-//		isBlocked
-//		isOnline
-//		phone
-//		photo
-//		photoId
-//		photoName
-//}
-//totalElement(func: type(Account)) @filter(eq(isDeleted,false)){
-//				count: count(firstName)
-//      }
-//}`

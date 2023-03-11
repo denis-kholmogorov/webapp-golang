@@ -40,12 +40,14 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 	variables["$currentUserId"] = currentUserId
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
+	variables["$dateFrom"] = utils.ConvSecToDateString(searchDto.DateFrom)
+	variables["$dateTo"] = utils.GetCurrentTimeString()
 	if len(searchDto.Text) == 0 {
 		variables["$accountId"] = strings.Join(searchDto.AccountIds, ",")
 		vars, err = txn.QueryWithVars(ctx, getAllPosts, variables)
 	} else {
 		variables["$text"] = searchDto.Text
-		variables["$author"] = fmt.Sprintf("/.*%s.*/", searchDto.Author)
+		variables["$author"] = fmt.Sprintf(regexAuthor, searchDto.Author)
 		vars, err = txn.QueryWithVars(ctx, getAllPostsByText, variables)
 	}
 
@@ -191,19 +193,19 @@ func (r PostRepository) Delete(postId string) error {
 //	}
 //}
 
-var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $author: string, $first: int, $offset: int)
+var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $author: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
 {
-  var(func: anyoftext(postText, $text)) @filter(eq(isDeleted, false))  {
+  var(func: anyoftext(postText, $text)) @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo))  {
     A as uid
   	}
 
   var(func: type(Account)) @filter(eq(isDeleted, false) and regexp(firstName, $author) or regexp(lastName, $author)){
-    posts @filter(eq(isDeleted, false)) {
+    posts @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo)) {
  		B as uid
     	}
 	}
 
-    content(func: uid(A,B), first: $first, offset: $offset, orderdesc: time) {
+    content(func: uid(A,B), first: $first, offset: $offset, orderdesc: time)  {
 	id:uid
 	postText
 	authorId
@@ -226,10 +228,10 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $aut
   }
 }`
 
-var getAllPosts = `query Posts($currentUserId: string, $accountId: string, $first: int, $offset: int)
+var getAllPosts = `query Posts($currentUserId: string, $accountId: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
 {
 var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
-  content:posts @filter(eq(isDeleted, false)){
+  content:posts @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo)){
 	A as uid
   }
 }
