@@ -17,6 +17,7 @@ const CreateAccountType = `type Account {
 	city
 	country
 	posts
+	friends
 	statusCode
 	messagePermission
 	createdOn
@@ -46,13 +47,16 @@ createdOn: datetime .
 updatedOn: datetime .
 birthDate: datetime @index(day).
 lastOnlineTime: datetime .
-posts: [uid] @reverse .`
+posts: [uid] @reverse .
+friends: [uid] @reverse .
+`
 
 const CreatePostType = `type Post {
 	authorId
 	postText
 	title
 	likes
+	comments
     isDeleted
     publishDate
     myLike
@@ -91,6 +95,7 @@ const CreateCommentType = `type Comment {
 	likeAmount
 	timeChanged
 	time
+	comments
 	imagePath
 	isBlocked
 	isDeleted
@@ -110,6 +115,18 @@ imagePath: string .
 isDeleted: bool .
 isBlocked: bool .
 comments: [uid] .
+`
+
+const CreateFriendshipType = `type Friendship {
+    friend
+	status
+	previousStatus
+    reverseStatus
+}
+friend: [uid] .
+status: string @index(hash) .
+previousStatus: string .
+reverseStatus: string .
 `
 
 const CreateTagType = `type Tag {

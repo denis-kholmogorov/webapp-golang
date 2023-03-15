@@ -38,6 +38,7 @@ func main() {
 	resource.GeoResource(server, service.NewGeoService())
 	resource.StorageResource(server, service.NewStorageService())
 	resource.PostResource(server, service.NewPostService())
+	resource.FriendResource(server, service.NewFriendService())
 
 	err := server.Run()
 	if err != nil {
@@ -110,11 +111,18 @@ func startDbMigrate(conn *dgo.Dgraph) {
 		Schema: CreateTagType,
 	})
 	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateFriendshipType,
+	})
+	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateLikeType,
 	})
-	txn := conn.NewTxn()
+
+	if err != nil {
+		log.Fatal("Alter schemas has been closed with error")
+	}
 
 	if isDropFirst() {
+		txn := conn.NewTxn()
 		marshalR := []byte(InsertCountryRu)
 		marshalRB := []byte(InsertRB)
 		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalR})

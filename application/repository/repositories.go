@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
+	"web/application/dto"
 )
 
 var conn *DGraphConn
@@ -62,6 +63,19 @@ func AddEdge(txn *dgo.Txn, ctx context.Context, objectID, edgeName, edgeUID stri
 		},
 	}
 	_, err := txn.Mutate(ctx, mu)
+	return err
+}
+
+func AddEdges(txn *dgo.Txn, ctx context.Context, edges []dto.Edge, commitNow bool) error {
+	var nquads []*api.NQuad
+	for _, edge := range edges {
+		nquads = append(nquads, &api.NQuad{
+			Subject:   edge.Subject,
+			Predicate: edge.Predicate,
+			ObjectId:  edge.ObjectId,
+		})
+	}
+	_, err := txn.Mutate(ctx, &api.Mutation{Set: nquads, CommitNow: commitNow})
 	return err
 }
 

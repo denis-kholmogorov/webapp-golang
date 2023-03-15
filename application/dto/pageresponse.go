@@ -2,8 +2,8 @@ package dto
 
 import "math"
 
-type PageResponse struct {
-	Content      []any   `json:"content"`
+type PageResponse[T any] struct {
+	Content      []T     `json:"content"`
 	TotalElement int     `json:"totalElement"`
 	TotalPages   int     `json:"totalPages"`
 	Number       int     `json:"number"`
@@ -15,7 +15,7 @@ type Count struct {
 	TotalElement int `json:"totalElement,omitempty"`
 }
 
-func (p *PageResponse) SetPage(size int, page int) {
+func (p *PageResponse[any]) SetPage(size int, page int) {
 	if len(p.Content) > 0 {
 		p.TotalElement = p.Count[0].TotalElement
 		p.TotalPages = int(math.Ceil(float64(p.TotalElement) / float64(size)))

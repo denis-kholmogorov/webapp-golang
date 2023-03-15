@@ -31,7 +31,7 @@ func GetPostRepository() *PostRepository {
 	return postRepo
 }
 
-func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string) (post *dto.PageResponse, e error) {
+func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string) (post *dto.PageResponse[domain.Post], e error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -55,7 +55,7 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 		log.Printf("PostRepository:FindAll() Error query %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error query %s", err)
 	}
-	response := dto.PageResponse{}
+	response := dto.PageResponse[domain.Post]{}
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
@@ -108,7 +108,7 @@ func (r PostRepository) Update(post *domain.Post, tagIds []string) error {
 	return AddNodesToEdge(txn, ctx, post.Id, "tags", tagIds, true)
 }
 
-func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string, currentUserId string) (post *dto.PageResponse, e error) {
+func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string, currentUserId string) (post *dto.PageResponse[domain.Comment], e error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -124,7 +124,7 @@ func (r PostRepository) GetAllComments(pageDto dto.PageRequest, parentId string,
 		log.Printf("PostRepository:FindAll() Error query %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error query %s", err)
 	}
-	response := dto.PageResponse{}
+	response := dto.PageResponse[domain.Comment]{}
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)

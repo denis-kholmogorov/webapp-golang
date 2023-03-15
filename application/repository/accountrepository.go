@@ -115,7 +115,7 @@ func (r AccountRepository) Update(account *domain.Account) (*string, error) {
 	return &account.Id, nil
 }
 
-func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId string) (*dto.PageResponse, error) {
+func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId string) (*dto.PageResponse[domain.Account], error) {
 	variables := make(map[string]string)
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
@@ -141,7 +141,7 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId str
 		return nil, fmt.Errorf("accountRepository findAll query with error")
 	}
 
-	response := dto.PageResponse{}
+	response := dto.PageResponse[domain.Account]{}
 	err = json.Unmarshal(vars.Json, &response)
 
 	if err != nil {
