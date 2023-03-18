@@ -11,7 +11,7 @@ type Comment struct {
 	PostId        string     `json:"postId,omitempty"`
 	CommentType   string     `json:"commentType,omitempty"`
 	CommentsCount int        `json:"commentsCount,omitempty"`
-	MyLike        bool       `json:"myLike,omitempty"`
+	MyLike        int        `json:"myLike,omitempty"`
 	LikeAmount    int        `json:"likeAmount,omitempty"`
 	TimeChanged   *time.Time `json:"timeChanged,omitempty"`
 	Time          *time.Time `json:"time,omitempty"`

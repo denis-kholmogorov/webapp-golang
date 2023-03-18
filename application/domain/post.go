@@ -9,7 +9,7 @@ type Post struct {
 	Type          string     `json:"type,omitempty"`
 	AuthorId      string     `json:"authorId,omitempty"`
 	PostText      string     `json:"postText"`
-	CommentsCount int        `json:"commentsCount,omitempty"`
+	CommentsCount int        `json:"commentsCount"`
 	MyLike        int        `json:"myLike,omitempty"`
 	LikeAmount    int        `json:"likeAmount,omitempty"`
 	ImagePath     string     `json:"imagePath"`

@@ -119,14 +119,15 @@ comments: [uid] .
 
 const CreateFriendshipType = `type Friendship {
     friend
+	friendId
 	status
 	previousStatus
     reverseStatus
 }
 friend: [uid] .
+friendId: string @index(hash) .
 status: string @index(hash) .
 previousStatus: string .
-reverseStatus: string .
 `
 
 const CreateTagType = `type Tag {

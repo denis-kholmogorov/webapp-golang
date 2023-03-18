@@ -30,8 +30,8 @@ func GetFriendRepository() *FriendRepository {
 }
 
 func (r FriendRepository) RequestFriend(currentId string, friendId string) error {
-	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.REQUEST_TO, ReverseStatus: domain.REQUEST_FROM, DType: []string{"Friendship"}}
-	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.REQUEST_FROM, ReverseStatus: domain.REQUEST_TO, DType: []string{"Friendship"}}
+	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.REQUEST_TO, FriendId: friendId, ReverseStatus: domain.REQUEST_FROM, DType: []string{"Friendship"}}
+	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.REQUEST_FROM, FriendId: currentId, ReverseStatus: domain.REQUEST_TO, DType: []string{"Friendship"}}
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 
@@ -56,6 +56,34 @@ func (r FriendRepository) RequestFriend(currentId string, friendId string) error
 	err = AddEdges(txn, ctx, edges, true)
 
 	return err
+}
+
+func (r FriendRepository) ApproveFriend(currentId string, friendId string) error {
+	ctx := context.Background()
+	variables := make(map[string]string)
+	variables["$currentId"] = currentId
+	variables["$friendId"] = friendId
+
+	mu := &api.Mutation{
+		SetNquads: []byte(`uid(A) <status> "FRIEND" .
+						   uid(B) <status> "FRIEND" .`),
+	}
+
+	req := &api.Request{
+		Query:     getFriendship,
+		Mutations: []*api.Mutation{mu},
+		Vars:      variables,
+		CommitNow: true,
+	}
+
+	// Update email only if matching uid found.
+	resp, err := r.conn.NewTxn().Do(ctx, req)
+	if err != nil {
+		return err
+	}
+	log.Printf(string(rune(len(resp.Uids))))
+
+	return nil
 }
 
 func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCode, page dto.PageRequest) (interface{}, interface{}) {
@@ -106,10 +134,26 @@ var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $f
 	country:country
 	birthDate:birthDate
 	isOnline:isOnline
-	imagePath: photo
+	photo: photo
   }
   count(func: uid(A)){
 		totalElement:count(uid)
   }
 }
 `
+
+var getFriendship = `query setFriend($currentId: string, $friendId: string)  {
+	fr1(func: uid($currentId)){
+		friends @filter(eq(friendId,$friendId)){
+			A as uid
+		}
+	}
+	fr2(func: uid($friendId)){
+		friends @filter(eq(friendId,$currentId)){
+			B as uid
+		}
+	}
+}`
+
+var mutateToFriend = `uid(A) <status> "FRIEND" .
+                      uid(B) <status> "FRIEND" .`

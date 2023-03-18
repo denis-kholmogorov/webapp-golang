@@ -31,6 +31,16 @@ func (s *FriendService) RequestFriend(c *gin.Context) {
 	}
 }
 
+func (s *FriendService) ApproveFriend(c *gin.Context) {
+	friendId := c.Param("id")
+	err := s.friendRepository.ApproveFriend(utils.GetCurrentUserId(c), friendId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
+	} else {
+		c.JSON(http.StatusOK, "")
+	}
+}
+
 func (s *FriendService) FindAll(c *gin.Context) {
 	page := dto.PageRequest{}
 	statusCode := dto.StatusCode{}
