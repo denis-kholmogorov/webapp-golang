@@ -11,6 +11,14 @@ type Friendship struct {
 	DType          []string  `json:"dgraph.type,omitempty"`
 }
 
+type CountRequest struct {
+	CountRequest []Count `json:"countRequest"`
+}
+
+type Count struct {
+	Count int `json:"count"`
+}
+
 const (
 	FRIEND         = "FRIEND"
 	REQUEST_TO     = "REQUEST_TO"

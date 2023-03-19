@@ -29,39 +29,39 @@ func GetFriendRepository() *FriendRepository {
 	return friendRepo
 }
 
-func (r FriendRepository) RequestFriend(currentId string, friendId string) error {
+func (r FriendRepository) RequestFriend(currentUserId string, friendId string) error {
 	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.REQUEST_TO, FriendId: friendId, ReverseStatus: domain.REQUEST_FROM, DType: []string{"Friendship"}}
-	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.REQUEST_FROM, FriendId: currentId, ReverseStatus: domain.REQUEST_TO, DType: []string{"Friendship"}}
+	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.REQUEST_FROM, FriendId: currentUserId, ReverseStatus: domain.REQUEST_TO, DType: []string{"Friendship"}}
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 
 	friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:RequestFriend() Error marhalling friend %s", err)
-		return fmt.Errorf("FriendRepository:RequestFriend() Error marhalling friend %s", err)
+		log.Printf("FriendRepository:Request() Error marhalling friend %s", err)
+		return fmt.Errorf("FriendRepository:Request() Error marhalling friend %s", err)
 	}
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: friendshipsm})
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:RequestFriend() Error mutate %s", err)
-		return fmt.Errorf("FriendRepository:RequestFriend() Error mutate %s", err)
+		log.Printf("FriendRepository:Request() Error mutate %s", err)
+		return fmt.Errorf("FriendRepository:Request() Error mutate %s", err)
 	}
 	edges := []dto.Edge{
-		{currentId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
-		{mutate.GetUids()["friendTo"], "friend", friendId},    // дружба от текущего добавляет друга
-		{friendId, "friends", mutate.GetUids()["friendFrom"]}, // другу добавляет дружбу FROM
-		{mutate.GetUids()["friendFrom"], "friend", currentId}, // дружба друга добавляет текущего
+		{currentUserId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
+		{mutate.GetUids()["friendTo"], "friend", friendId},        // дружба от текущего добавляет друга
+		{friendId, "friends", mutate.GetUids()["friendFrom"]},     // другу добавляет дружбу FROM
+		{mutate.GetUids()["friendFrom"], "friend", currentUserId}, // дружба друга добавляет текущего
 	}
 	err = AddEdges(txn, ctx, edges, true)
 
 	return err
 }
 
-func (r FriendRepository) ApproveFriend(currentId string, friendId string) error {
+func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) error {
 	ctx := context.Background()
 	variables := make(map[string]string)
-	variables["$currentId"] = currentId
+	variables["$currentId"] = currentUserId
 	variables["$friendId"] = friendId
 
 	mu := &api.Mutation{
@@ -116,10 +116,10 @@ func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCod
 	return &response, nil
 }
 
-func (r FriendRepository) Delete(currentId string, friendId string) error {
+func (r FriendRepository) Delete(currentUserId string, friendId string) error {
 	ctx := context.Background()
 	variables := make(map[string]string)
-	variables["$currentId"] = currentId
+	variables["$currentId"] = currentUserId
 	variables["$friendId"] = friendId
 
 	mu := &api.Mutation{
@@ -141,6 +141,30 @@ func (r FriendRepository) Delete(currentId string, friendId string) error {
 	log.Printf(string(rune(len(resp.Uids))))
 
 	return nil
+}
+
+func (r FriendRepository) Count(currentUserId string) (int, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	var vars *api.Response
+	var err error
+	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
+	variables["$status"] = domain.REQUEST_FROM
+	vars, err = txn.QueryWithVars(ctx, getCount, variables)
+
+	if err != nil {
+		log.Printf("FriendRepository:FindAll() Error query %s", err)
+		return 0, fmt.Errorf("FriendRepository:FindAll() Error query %s", err)
+	}
+	response := domain.CountRequest{}
+	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		log.Printf("FriendRepository:FindAll() Error Unmarshal %s", err)
+		return 0, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
+	}
+
+	return response.CountRequest[0].Count, nil
 }
 
 var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
@@ -168,14 +192,14 @@ var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $f
 }
 `
 
-var getFriendship = `query setFriend($currentId: string, $friendId: string)  {
-	fr1(func: uid($currentId)){
+var getFriendship = `query setFriend($currentUserId: string, $friendId: string)  {
+	fr1(func: uid($currentUserId)){
 		friends @filter(eq(friendId,$friendId)){
 			A as uid
 		}
 	}
 	fr2(func: uid($friendId)){
-		friends @filter(eq(friendId,$currentId)){
+		friends @filter(eq(friendId,$currentUserId)){
 			B as uid
 		}
 	}
@@ -184,8 +208,8 @@ var getFriendship = `query setFriend($currentId: string, $friendId: string)  {
 var updateToFriend = `uid(A) <status> "FRIEND" .
                       uid(B) <status> "FRIEND" .`
 
-var deleteFriendship = `query setFriend($currentId: string, $friendId: string)  {
-	fr1(func: uid($currentId)){
+var deleteFriendship = `query setFriend($currentUserId: string, $friendId: string)  {
+	fr1(func: uid($currentUserId)){
 		A as uid
 		friends @filter(eq(friendId,$friendId)){
 			B as uid
@@ -193,7 +217,7 @@ var deleteFriendship = `query setFriend($currentId: string, $friendId: string)  
 	}
 	fr2(func: uid($friendId)){
 		C as uid
-		friends @filter(eq(friendId,$currentId)){
+		friends @filter(eq(friendId,$currentUserId)){
 			D as uid
 		}
 	}
@@ -203,3 +227,12 @@ var deleteFromFriend = `uid(A) <friends> uid(B) .
 						   uid(C) <friends> uid(D) .
                            uid(B) * * .
 						   uid(D) * * .`
+
+// TODO переделать на var и посмотреть count
+var getCount = `query count($currentUserId: string, $status: string)  { 
+	countRequest(func: uid($currentUserId)) @normalize {
+		friends @filter(eq(status, $status)){
+			count :count(uid)
+		}
+	}
+}`

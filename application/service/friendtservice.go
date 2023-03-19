@@ -21,7 +21,7 @@ func NewFriendService() *FriendService {
 	}
 }
 
-func (s *FriendService) RequestFriend(c *gin.Context) {
+func (s *FriendService) Request(c *gin.Context) {
 	friendId := c.Param("id")
 	err := s.friendRepository.RequestFriend(utils.GetCurrentUserId(c), friendId)
 	if err != nil {
@@ -31,7 +31,7 @@ func (s *FriendService) RequestFriend(c *gin.Context) {
 	}
 }
 
-func (s *FriendService) ApproveFriend(c *gin.Context) {
+func (s *FriendService) Approve(c *gin.Context) {
 	friendId := c.Param("id")
 	err := s.friendRepository.ApproveFriend(utils.GetCurrentUserId(c), friendId)
 	if err != nil {
@@ -61,5 +61,14 @@ func (s *FriendService) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
 	} else {
 		c.JSON(http.StatusOK, "")
+	}
+}
+
+func (s *FriendService) Count(c *gin.Context) {
+	response, err := s.friendRepository.Count(utils.GetCurrentUserId(c))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
+	} else {
+		c.JSON(http.StatusOK, response)
 	}
 }
