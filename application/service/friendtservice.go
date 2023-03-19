@@ -53,3 +53,13 @@ func (s *FriendService) FindAll(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 	}
 }
+
+func (s *FriendService) Delete(c *gin.Context) {
+	friendId := c.Param("id")
+	err := s.friendRepository.Delete(utils.GetCurrentUserId(c), friendId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
+	} else {
+		c.JSON(http.StatusOK, "")
+	}
+}

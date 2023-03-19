@@ -117,6 +117,36 @@ func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCod
 	return &response, nil
 }
 
+func (r FriendRepository) Delete(currentId string, friendId string) error {
+	ctx := context.Background()
+	variables := make(map[string]string)
+	variables["$currentId"] = currentId
+	variables["$friendId"] = friendId
+
+	mu := &api.Mutation{
+		DelNquads: []byte(fmt.Sprintf(`<%s> <friends> uid(A) .
+						   <%s> <friends> uid(B) .
+                           uid(A) * * .
+						   uid(B) * * .`, currentId, friendId)),
+	}
+
+	req := &api.Request{
+		Query:     getFriendship,
+		Mutations: []*api.Mutation{mu},
+		Vars:      variables,
+		CommitNow: true,
+	}
+
+	// Update email only if matching uid found.
+	resp, err := r.conn.NewTxn().Do(ctx, req)
+	if err != nil {
+		return err
+	}
+	log.Printf(string(rune(len(resp.Uids))))
+
+	return nil
+}
+
 var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
 {
   var(func: uid($currentUserId)) @filter(eq(isDeleted, false))  {
