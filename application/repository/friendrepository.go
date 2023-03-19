@@ -65,8 +65,7 @@ func (r FriendRepository) ApproveFriend(currentId string, friendId string) error
 	variables["$friendId"] = friendId
 
 	mu := &api.Mutation{
-		SetNquads: []byte(`uid(A) <status> "FRIEND" .
-						   uid(B) <status> "FRIEND" .`),
+		SetNquads: []byte(updateToFriend),
 	}
 
 	req := &api.Request{
@@ -124,14 +123,11 @@ func (r FriendRepository) Delete(currentId string, friendId string) error {
 	variables["$friendId"] = friendId
 
 	mu := &api.Mutation{
-		DelNquads: []byte(fmt.Sprintf(`<%s> <friends> uid(A) .
-						   <%s> <friends> uid(B) .
-                           uid(A) * * .
-						   uid(B) * * .`, currentId, friendId)),
+		DelNquads: []byte(deleteFromFriend),
 	}
 
 	req := &api.Request{
-		Query:     getFriendship,
+		Query:     deleteFriendship,
 		Mutations: []*api.Mutation{mu},
 		Vars:      variables,
 		CommitNow: true,
@@ -185,5 +181,25 @@ var getFriendship = `query setFriend($currentId: string, $friendId: string)  {
 	}
 }`
 
-var mutateToFriend = `uid(A) <status> "FRIEND" .
+var updateToFriend = `uid(A) <status> "FRIEND" .
                       uid(B) <status> "FRIEND" .`
+
+var deleteFriendship = `query setFriend($currentId: string, $friendId: string)  {
+	fr1(func: uid($currentId)){
+		A as uid
+		friends @filter(eq(friendId,$friendId)){
+			B as uid
+		}
+	}
+	fr2(func: uid($friendId)){
+		C as uid
+		friends @filter(eq(friendId,$currentId)){
+			D as uid
+		}
+	}
+}`
+
+var deleteFromFriend = `uid(A) <friends> uid(B) .
+						   uid(C) <friends> uid(D) .
+                           uid(B) * * .
+						   uid(D) * * .`
