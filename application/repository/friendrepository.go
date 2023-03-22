@@ -119,7 +119,7 @@ func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCod
 func (r FriendRepository) Delete(currentUserId string, friendId string) error {
 	ctx := context.Background()
 	variables := make(map[string]string)
-	variables["$currentId"] = currentUserId
+	variables["$currentUserId"] = currentUserId
 	variables["$friendId"] = friendId
 
 	mu := &api.Mutation{
