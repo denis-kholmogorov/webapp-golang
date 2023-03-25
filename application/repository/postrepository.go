@@ -42,9 +42,25 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
 	variables["$dateFrom"] = utils.ConvSecToDateString(searchDto.DateFrom)
 	variables["$dateTo"] = utils.GetCurrentTimeString()
+
+	if len(searchDto.AccountIds) == 0 {
+		searchDto.AccountIds = append(searchDto.AccountIds, currentUserId)
+	}
+
+	if searchDto.WithFriends {
+		ids, err := friendRepo.getMyFriends(currentUserId)
+		if err != nil {
+			log.Printf("PostRepository:FindAll() Error add friends %s", err)
+			return nil, fmt.Errorf("PostRepository:FindAll() Error add friends %s", err)
+		}
+		for _, id := range ids {
+			searchDto.AccountIds = append(searchDto.AccountIds, id)
+		}
+	}
+
 	if len(searchDto.Text) == 0 {
-		variables["$accountId"] = strings.Join(searchDto.AccountIds, ",")
-		vars, err = txn.QueryWithVars(ctx, getAllPosts, variables)
+		ids := strings.Join(searchDto.AccountIds, ",")
+		vars, err = txn.QueryWithVars(ctx, fmt.Sprintf(getAllPosts, ids), variables)
 	} else {
 		variables["$text"] = searchDto.Text
 		variables["$author"] = fmt.Sprintf(regexAuthor, searchDto.Author)
@@ -228,9 +244,9 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $aut
   }
 }`
 
-var getAllPosts = `query Posts($currentUserId: string, $accountId: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
+var getAllPosts = `query Posts($currentUserId: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
 {
-var(func: uid($accountId)) @filter(eq(isDeleted, false))  {
+var(func: uid(%s)) @filter(eq(isDeleted, false))  {
   content:posts @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo)){
 	A as uid
   }

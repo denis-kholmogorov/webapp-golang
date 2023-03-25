@@ -61,7 +61,7 @@ func (r FriendRepository) RequestFriend(currentUserId string, friendId string) e
 func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) error {
 	ctx := context.Background()
 	variables := make(map[string]string)
-	variables["$currentId"] = currentUserId
+	variables["$currentUserId"] = currentUserId
 	variables["$friendId"] = friendId
 
 	mu := &api.Mutation{
@@ -164,7 +164,39 @@ func (r FriendRepository) Count(currentUserId string) (int, error) {
 		return 0, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
 	}
 
-	return response.CountRequest[0].Count, nil
+	if len(response.CountRequest) > 0 {
+		return response.CountRequest[0].Count, nil
+	} else {
+		return 0, nil
+	}
+}
+
+func (r FriendRepository) getMyFriends(currentUserId string) ([]string, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	var vars *api.Response
+	var err error
+	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
+	variables["$statusFriend"] = domain.FRIEND
+	variables["$statusSubscribe"] = domain.SUBSCRIBED
+	vars, err = txn.QueryWithVars(ctx, getMyFriends, variables)
+
+	if err != nil {
+		log.Printf("FriendRepository:FindAll() Error query %s", err)
+		return nil, fmt.Errorf("FriendRepository:FindAll() Error query %s", err)
+	}
+	response := domain.IdsFriends{}
+	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		log.Printf("FriendRepository:FindAll() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
+	}
+	var ids []string
+	for _, friend := range response.Ids {
+		ids = append(ids, friend.Id)
+	}
+	return ids, nil
 }
 
 var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
@@ -234,5 +266,15 @@ var getCount = `query count($currentUserId: string, $status: string)  {
 		friends @filter(eq(status, $status)){
 			count :count(uid)
 		}
+	}
+}`
+
+var getMyFriends = `query count($currentUserId: string, $statusFriend: string, $statusSubscribe: string)  { 
+	ids(func: uid($currentUserId)) @normalize {
+		friends @filter(eq(status, $statusFriend) or eq(status, $statusSubscribe)){
+			friend{
+			id :	uid
+      }		
+      }
 	}
 }`

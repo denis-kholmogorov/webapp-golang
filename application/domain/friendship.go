@@ -15,6 +15,14 @@ type CountRequest struct {
 	CountRequest []Count `json:"countRequest"`
 }
 
+type IdsFriends struct {
+	Ids []Id `json:"ids"`
+}
+
+type Id struct {
+	Id string `json:"id"`
+}
+
 type Count struct {
 	Count int `json:"count"`
 }
