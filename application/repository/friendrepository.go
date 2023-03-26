@@ -303,25 +303,32 @@ var getMyFriends = `query count($currentUserId: string, $statusFriend: string, $
 }`
 
 var getRecommendations = `query count($currentUserId: string, $statusFriend: string)  {
+    var(func: uid($currentUserId)) @normalize {
+      friends{
+        friend{
+		  A as uid
+		}
+  	  }
+    }
 	var(func: uid($currentUserId)) @normalize {
       friends @filter(eq(status, $statusFriend)){
         friend{
           friends @filter(eq(status, $statusFriend)){
-      		friend@filter(not uid($currentUserId)){
-						A as uid
+      		friend@filter(not uid($currentUserId) and not uid(A)){
+              B as uid
       		}
           }
 		}
   	  }
     }
-   content(func: uid(A)){
-     id:uid
-	 firstName:firstName
-	 lastName:lastName
-	 city:city
-	 country:country
-	 birthDate:birthDate
-	 isOnline:isOnline
-	 photo: photo
-   }
+    content(func: uid(B)){
+      id:uid
+	  firstName:firstName
+	  lastName:lastName
+	  city:city
+	  country:country
+	  birthDate:birthDate
+	  isOnline:isOnline
+	  photo: photo
+    }
 }`
