@@ -199,6 +199,29 @@ func (r FriendRepository) getMyFriends(currentUserId string) ([]string, error) {
 	return ids, nil
 }
 
+func (r FriendRepository) Recommendations(currentUserId string) ([]domain.Account, error) {
+	ctx := context.Background()
+	txn := r.conn.NewReadOnlyTxn()
+	var vars *api.Response
+	var err error
+	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
+	variables["$statusFriend"] = domain.FRIEND
+	vars, err = txn.QueryWithVars(ctx, getRecommendations, variables)
+
+	if err != nil {
+		log.Printf("FriendRepository:FindAll() Error query %s", err)
+		return nil, fmt.Errorf("FriendRepository:FindAll() Error query %s", err)
+	}
+	response := dto.PageResponse[domain.Account]{}
+	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		log.Printf("FriendRepository:FindAll() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
+	}
+	return response.Content, nil
+}
+
 var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
 {
   var(func: uid($currentUserId)) @filter(eq(isDeleted, false))  {
@@ -271,10 +294,34 @@ var getCount = `query count($currentUserId: string, $status: string)  {
 
 var getMyFriends = `query count($currentUserId: string, $statusFriend: string, $statusSubscribe: string)  { 
 	ids(func: uid($currentUserId)) @normalize {
-		friends @filter(eq(status, $statusFriend) or eq(status, $statusSubscribe)){
-			friend{
-			id :	uid
-      }		
+      friends @filter(eq(status, $statusFriend) or eq(status, $statusSubscribe)){
+        friend{
+		  id : uid
+        }		
       }
 	}
+}`
+
+var getRecommendations = `query count($currentUserId: string, $statusFriend: string)  {
+	var(func: uid($currentUserId)) @normalize {
+      friends @filter(eq(status, $statusFriend)){
+        friend{
+          friends @filter(eq(status, $statusFriend)){
+      		friend@filter(not uid($currentUserId)){
+						A as uid
+      		}
+          }
+		}
+  	  }
+    }
+   content(func: uid(A)){
+     id:uid
+	 firstName:firstName
+	 lastName:lastName
+	 city:city
+	 country:country
+	 birthDate:birthDate
+	 isOnline:isOnline
+	 photo: photo
+   }
 }`

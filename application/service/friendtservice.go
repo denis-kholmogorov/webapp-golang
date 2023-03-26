@@ -72,3 +72,12 @@ func (s *FriendService) Count(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 	}
 }
+
+func (s *FriendService) Recommendations(c *gin.Context) {
+	response, err := s.friendRepository.Recommendations(utils.GetCurrentUserId(c))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
+	} else {
+		c.JSON(http.StatusOK, response)
+	}
+}
