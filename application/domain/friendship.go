@@ -11,6 +11,10 @@ type Friendship struct {
 	DType          []string  `json:"dgraph.type,omitempty"`
 }
 
+type Friendships struct {
+	Friendships []Friendship `json:"friendships,omitempty"`
+}
+
 type CountRequest struct {
 	CountRequest []Count `json:"countRequest"`
 }

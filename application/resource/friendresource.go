@@ -10,6 +10,7 @@ func FriendResource(e *gin.Engine, service *service.FriendService) {
 	e.GET("/api/v1/friends/count", service.Count)
 	e.POST("/api/v1/friends/:id/request", service.Request)
 	e.PUT("/api/v1/friends/:id/approve", service.Approve)
+	e.PUT("/api/v1/friends/block/:id", service.Block)
 	e.DELETE("/api/v1/friends/:id", service.Delete)
 	e.GET("/api/v1/friends/recommendations", service.Recommendations)
 }

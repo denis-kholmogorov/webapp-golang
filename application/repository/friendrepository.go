@@ -210,16 +210,90 @@ func (r FriendRepository) Recommendations(currentUserId string) ([]domain.Accoun
 	vars, err = txn.QueryWithVars(ctx, getRecommendations, variables)
 
 	if err != nil {
-		log.Printf("FriendRepository:FindAll() Error query %s", err)
-		return nil, fmt.Errorf("FriendRepository:FindAll() Error query %s", err)
+		log.Printf("FriendRepository:Recommendations() Error query %s", err)
+		return nil, fmt.Errorf("FriendRepository:Recommendations() Error query %s", err)
 	}
 	response := dto.PageResponse[domain.Account]{}
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
-		log.Printf("FriendRepository:FindAll() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
+		log.Printf("FriendRepository:Recommendations() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("FriendRepository:Recommendations() Error Unmarshal %s", err)
 	}
 	return response.Content, nil
+}
+
+func (r FriendRepository) Block(currentUserId string, friendId string) error {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
+	variables["$friendId"] = friendId
+	vars, err := txn.QueryWithVars(ctx, getFriendshipStatus, variables)
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("FriendRepository:Block() Error query %s", err)
+		return fmt.Errorf("FriendRepository:Block() Error query %s", err)
+	}
+	response := domain.Friendships{}
+	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("FriendRepository:Block() Error Unmarshal %s", err)
+		return fmt.Errorf("FriendRepository:Block() Error Unmarshal %s", err)
+	}
+	if len(response.Friendships) == 0 {
+		friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.BLOCKED, FriendId: friendId, DType: []string{"Friendship"}}
+		friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.NONE, FriendId: currentUserId, DType: []string{"Friendship"}}
+		friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
+		if err != nil {
+			txn.Discard(ctx)
+			log.Printf("FriendRepository:Request() Error marhalling friend %s", err)
+			return fmt.Errorf("FriendRepository:Request() Error marhalling friend %s", err)
+		}
+		mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: friendshipsm})
+		if err != nil {
+			txn.Discard(ctx)
+			log.Printf("FriendRepository:Request() Error mutate %s", err)
+			return fmt.Errorf("FriendRepository:Request() Error mutate %s", err)
+		}
+		edges := []dto.Edge{
+			{currentUserId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
+			{mutate.GetUids()["friendTo"], "friend", friendId},        // дружба от текущего добавляет друга
+			{friendId, "friends", mutate.GetUids()["friendFrom"]},     // другу добавляет дружбу FROM
+			{mutate.GetUids()["friendFrom"], "friend", currentUserId}, // дружба друга добавляет текущего
+		}
+		err = AddEdges(txn, ctx, edges, true)
+	} else {
+		var mu *api.Mutation
+		if response.Friendships[0].Status != domain.BLOCKED {
+			mu = &api.Mutation{
+				SetNquads: []byte(fmt.Sprintf(blockFriendship, domain.BLOCKED, domain.NONE, response.Friendships[0].Status, response.Friendships[1].Status)),
+			}
+		} else {
+			if response.Friendships[0].PreviousStatus == "" {
+				txn.Commit(ctx)
+				return r.Delete(currentUserId, friendId)
+			}
+			mu = &api.Mutation{
+				SetNquads: []byte(fmt.Sprintf(blockFriendship, response.Friendships[0].PreviousStatus, response.Friendships[1].PreviousStatus, "", "")),
+			}
+		}
+
+		req := &api.Request{
+			Query:     getFriendship,
+			Mutations: []*api.Mutation{mu},
+			Vars:      variables,
+			CommitNow: true,
+		}
+
+		// Update email only if matching uid found.
+		resp, err := r.conn.NewTxn().Do(ctx, req)
+		if err != nil {
+			return err
+		}
+		log.Printf(string(rune(len(resp.Uids))))
+	}
+	return nil
 }
 
 var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
@@ -260,8 +334,32 @@ var getFriendship = `query setFriend($currentUserId: string, $friendId: string) 
 	}
 }`
 
+var getFriendshipStatus = `query setFriend($currentUserId: string, $friendId: string)  {
+	fr1(func: uid($currentUserId)){
+		friends @filter(eq(friendId,$friendId)){
+			A as uid
+		}
+	}
+	fr2(func: uid($friendId)){
+		friends @filter(eq(friendId,$currentUserId)){
+			B as uid
+		}
+	}
+	 friendships(func: uid(A,B)){
+      uid
+      friendId
+      status
+      previousStatus
+    }
+}`
+
 var updateToFriend = `uid(A) <status> "FRIEND" .
                       uid(B) <status> "FRIEND" .`
+
+var blockFriendship = `uid(A) <status> "%s" .
+                       uid(B) <status> "%s" .
+                       uid(A) <previousStatus> "%s" .
+                       uid(B) <previousStatus> "%s" .`
 
 var deleteFriendship = `query setFriend($currentUserId: string, $friendId: string)  {
 	fr1(func: uid($currentUserId)){
