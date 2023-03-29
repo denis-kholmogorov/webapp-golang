@@ -242,27 +242,7 @@ func (r FriendRepository) Block(currentUserId string, friendId string) error {
 		return fmt.Errorf("FriendRepository:Block() Error Unmarshal %s", err)
 	}
 	if len(response.Friendships) == 0 {
-		friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.BLOCKED, FriendId: friendId, DType: []string{"Friendship"}}
-		friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.NONE, FriendId: currentUserId, DType: []string{"Friendship"}}
-		friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
-		if err != nil {
-			txn.Discard(ctx)
-			log.Printf("FriendRepository:Request() Error marhalling friend %s", err)
-			return fmt.Errorf("FriendRepository:Request() Error marhalling friend %s", err)
-		}
-		mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: friendshipsm})
-		if err != nil {
-			txn.Discard(ctx)
-			log.Printf("FriendRepository:Request() Error mutate %s", err)
-			return fmt.Errorf("FriendRepository:Request() Error mutate %s", err)
-		}
-		edges := []dto.Edge{
-			{currentUserId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
-			{mutate.GetUids()["friendTo"], "friend", friendId},        // дружба от текущего добавляет друга
-			{friendId, "friends", mutate.GetUids()["friendFrom"]},     // другу добавляет дружбу FROM
-			{mutate.GetUids()["friendFrom"], "friend", currentUserId}, // дружба друга добавляет текущего
-		}
-		err = AddEdges(txn, ctx, edges, true)
+		return r.createFriendship(ctx, txn, currentUserId, friendId, domain.BLOCKED, domain.NONE)
 	} else {
 		var mu *api.Mutation
 		if response.Friendships[0].Status != domain.BLOCKED {
@@ -292,6 +272,35 @@ func (r FriendRepository) Block(currentUserId string, friendId string) error {
 			return err
 		}
 		log.Printf(string(rune(len(resp.Uids))))
+	}
+	return nil
+}
+
+func (r FriendRepository) createFriendship(ctx context.Context, txn *dgo.Txn, currentUserId, friendId, statusToFriend, statusFromFriend string) error {
+	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: statusToFriend, FriendId: friendId, DType: []string{"Friendship"}}
+	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: statusFromFriend, FriendId: currentUserId, DType: []string{"Friendship"}}
+	friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("FriendRepository:Request() Error marhalling friend %s", err)
+		return fmt.Errorf("FriendRepository:Request() Error marhalling friend %s", err)
+	}
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: friendshipsm})
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("FriendRepository:Request() Error mutate %s", err)
+		return fmt.Errorf("FriendRepository:Request() Error mutate %s", err)
+	}
+	edges := []dto.Edge{
+		{currentUserId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
+		{mutate.GetUids()["friendTo"], "friend", friendId},        // дружба от текущего добавляет друга
+		{friendId, "friends", mutate.GetUids()["friendFrom"]},     // другу добавляет дружбу FROM
+		{mutate.GetUids()["friendFrom"], "friend", currentUserId}, // дружба друга добавляет текущего
+	}
+	err = AddEdges(txn, ctx, edges, true)
+	if err != nil {
+		txn.Discard(ctx)
+		return err
 	}
 	return nil
 }
