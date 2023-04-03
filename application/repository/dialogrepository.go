@@ -101,6 +101,30 @@ func (r DialogRepository) GetMessages(currentUserId string, page dto.PageRequest
 	return &messages, nil
 }
 
+func (r DialogRepository) UpdateMessages(currentUserId string, companionId string) error {
+	ctx := context.Background()
+	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
+	variables["$companionId"] = companionId
+
+	mu := &api.Mutation{
+		SetNquads: []byte(updateStatus),
+	}
+
+	req := &api.Request{
+		Query:     getNotReadMessage,
+		Mutations: []*api.Mutation{mu},
+		Vars:      variables,
+		CommitNow: true,
+	}
+	_, err := r.conn.NewTxn().Do(ctx, req)
+	if err != nil {
+		log.Printf("DialogRepository: UpdateMessages() Error Unmarshal %s", err)
+		return fmt.Errorf("DialogRepository: UpdateMessages() Error Unmarshal %s", err)
+	}
+	return nil
+}
+
 func createDialog(ctx context.Context, txn *dgo.Txn, currentUserId string, companionId string) (*domain.MessageList, error) {
 	dialog := domain.Dialog{}
 	dialog.Uid = "_:dialog"
@@ -138,7 +162,7 @@ func createDialog(ctx context.Context, txn *dgo.Txn, currentUserId string, compa
 	return &domain.MessageList{List: dialog.Messages}, nil
 }
 
-var getDialogs = `query Posts($currentUserId: string, $first: int, $offset: int)
+var getDialogs = `query GetDialogs($currentUserId: string, $first: int, $offset: int)
 {
 	var(func: type(Dialog)) @filter(uid_in(participantOne,$currentUserId) or uid_in(participantTwo,$currentUserId)) {
 		A as uid
@@ -187,3 +211,12 @@ var getMessageByDialog = `query Messages($dialogId: string)
 		} 
     }
 }`
+
+var getNotReadMessage = `query getNotRead($currentUserId: string, $companionId: string)  
+{
+		getUnreadMessage(func: type(Message)) @filter(eq(authorId,companionId) and eq(recipientId,$currentUserId)) {
+			A as uid
+  		}
+}`
+
+var updateStatus = `uid(A) <isRead> "true" .`

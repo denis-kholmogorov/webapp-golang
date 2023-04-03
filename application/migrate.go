@@ -162,7 +162,7 @@ const CreateMessageType = `type Message {
 }
 messageText: string @index(term) @lang .
 authorId: string @index(hash) .
-recipientId: string .
+recipientId: string @index(hash).
 timeSend: int .
 isRead: bool .
 isDeleted: bool .`

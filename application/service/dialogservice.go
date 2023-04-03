@@ -42,12 +42,24 @@ func (s DialogService) GetDialogs(c *gin.Context) {
 func (s DialogService) GetMessages(c *gin.Context) {
 	page := dto.PageRequestOld{}
 	utils.BindQuery(c, &page)
-	authorId := utils.GetCurrentUserId(c)
-	messages, err := s.dialogRepository.GetMessages(authorId, page)
+	currentUserId := utils.GetCurrentUserId(c)
+	messages, err := s.dialogRepository.GetMessages(currentUserId, page)
 	if err != nil {
 		log.Println(err)
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("GetMessages() Row with not found"))
 	} else {
 		c.JSON(http.StatusOK, messages)
+	}
+}
+
+func (s DialogService) UpdateDialogs(c *gin.Context) {
+	companionId := c.Param("companionId")
+	currentUserId := utils.GetCurrentUserId(c)
+	err := s.dialogRepository.UpdateMessages(currentUserId, companionId)
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("UpdateDialogs() Row with not found"))
+	} else {
+		c.JSON(http.StatusOK, "")
 	}
 }
