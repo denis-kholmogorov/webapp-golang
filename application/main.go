@@ -33,12 +33,14 @@ func main() {
 	server := gin.Default()
 	server.Use(security.NewSecurity().AuthMiddleware)
 
-	resource.AccountResource(server, service.NewAccountService())
-	resource.AuthResource(server, service.NewAuthService())
 	resource.GeoResource(server, service.NewGeoService())
-	resource.StorageResource(server, service.NewStorageService())
+	resource.AuthResource(server, service.NewAuthService())
 	resource.PostResource(server, service.NewPostService())
 	resource.FriendResource(server, service.NewFriendService())
+	resource.AccountResource(server, service.NewAccountService())
+	resource.StorageResource(server, service.NewStorageService())
+	resource.DialogResource(server, service.NewDialogService())
+	resource.WebsocketResource(server, service.NewWebsocketService())
 
 	err := server.Run()
 	if err != nil {
@@ -115,6 +117,12 @@ func startDbMigrate(conn *dgo.Dgraph) {
 	})
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateLikeType,
+	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateDialogType,
+	})
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateMessageType,
 	})
 
 	if err != nil {

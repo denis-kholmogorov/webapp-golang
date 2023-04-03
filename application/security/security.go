@@ -27,19 +27,30 @@ func NewSecurity() *Security {
 
 func (conf *Security) AuthMiddleware(ctx *gin.Context) {
 	if !conf.hasPathInWhiteList(ctx) {
-
+		if ctx.Request.Header["Authorization"] == nil {
+			checkCookie(ctx)
+		}
 		if ctx.Request.Header["Authorization"] != nil {
 			rowToken := ctx.Request.Header["Authorization"][0]
 			token, err := parseToken(rowToken)
 			if err != nil {
 				ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("token expired"))
+				return
 			}
 			addValuesToContext(ctx, token)
 		} else {
 			ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("path %s not found in whiteList", ctx.Request.URL.Path))
+			return
 		}
 	}
 
+}
+
+func checkCookie(ctx *gin.Context) {
+	cookie, err := ctx.Request.Cookie("jwt")
+	if err == nil && cookie.Value != "" {
+		ctx.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cookie.Value))
+	}
 }
 
 func (conf *Security) hasPathInWhiteList(ctx *gin.Context) bool {

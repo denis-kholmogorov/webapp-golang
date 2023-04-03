@@ -152,6 +152,34 @@ captchaId: string @index(term) @lang .
 captchaCode: string @index(term) @lang .
 expiredTime: datetime .`
 
+const CreateMessageType = `type Message {
+	messageText    
+	authorId
+	recipientId
+	timeSend
+    isRead
+	isDeleted
+}
+messageText: string @index(term) @lang .
+authorId: string @index(hash) .
+recipientId: string .
+timeSend: int .
+isRead: bool .
+isDeleted: bool .`
+
+const CreateDialogType = `type Dialog {
+	participantOne
+	participantTwo
+    unreadCount
+    messages
+	isDeleted
+}
+participantOne: uid @reverse .
+participantTwo: uid @reverse .
+unreadCount: int .
+messages: [uid] .
+isDeleted: bool .`
+
 const CreateCityType = `type City {
     cityTitle
 }
