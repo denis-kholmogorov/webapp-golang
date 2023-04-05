@@ -7,6 +7,7 @@ import (
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
 	"log"
+	"time"
 	"web/application/domain"
 	"web/application/dto"
 )
@@ -62,7 +63,7 @@ func (r DialogRepository) GetMessages(currentUserId string, page dto.PageRequest
 	variables := make(map[string]string)
 	variables["$currentUserId"] = currentUserId
 	variables["$companionId"] = page.CompanionId
-	vars, err = txn.QueryWithVars(ctx, existDialog, variables)
+	vars, err = txn.QueryWithVars(ctx, getIdDialog, variables)
 
 	if err != nil {
 		txn.Discard(ctx)
@@ -125,6 +126,53 @@ func (r DialogRepository) UpdateMessages(currentUserId string, companionId strin
 	return nil
 }
 
+func (r DialogRepository) SaveMessage(message *domain.Message) (*domain.Message, error) {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	var vars *api.Response
+	var err error
+	variables := make(map[string]string)
+	variables["$currentUserId"] = message.AuthorId
+	variables["$companionId"] = message.RecipientId
+	vars, err = txn.QueryWithVars(ctx, getIdDialog, variables)
+
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("DialogRepository:SaveMessage() Error query %s", err)
+		return nil, fmt.Errorf("DialogRepository:SaveMessage() Error query %s", err)
+	}
+	exist := domain.DialogList{}
+	err = json.Unmarshal(vars.Json, &exist)
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("DialogRepository:SaveMessage() Error Unmarshal %s", err)
+		return nil, fmt.Errorf("DialogRepository:SaveMessage() Error Unmarshal %s", err)
+	}
+
+	message.Uid = "_:message"
+	message.TimeSend = time.Now().UTC().Unix()
+	message.DType = []string{"Message"}
+	marshal, err := json.Marshal(message)
+
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("DialogRepository:createDialog() Error marhalling post %s", err)
+		return nil, fmt.Errorf("DialogRepository:createDialog() Error marhalling post %s", err)
+	}
+
+	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: marshal})
+
+	if err != nil {
+		txn.Discard(ctx)
+		log.Printf("DialogRepository:createDialog() Error mutate %s", err)
+		return nil, fmt.Errorf("DialogRepository:createDialog() Error mutate %s", err)
+	}
+
+	AddEdge(txn, ctx, exist.List[0].Uid, "messages", mutate.GetUids()["message"], true)
+	message.Id = mutate.GetUids()["message"]
+	return message, nil
+}
+
 func createDialog(ctx context.Context, txn *dgo.Txn, currentUserId string, companionId string) (*domain.MessageList, error) {
 	dialog := domain.Dialog{}
 	dialog.Uid = "_:dialog"
@@ -164,20 +212,20 @@ func createDialog(ctx context.Context, txn *dgo.Txn, currentUserId string, compa
 
 var getDialogs = `query GetDialogs($currentUserId: string, $first: int, $offset: int)
 {
-	var(func: type(Dialog)) @filter(uid_in(participantOne,$currentUserId) or uid_in(participantTwo,$currentUserId)) {
+	var(func: type(Dialog)) @filter(uid_in(conversationPartner1,$currentUserId) or uid_in(conversationPartner2,$currentUserId)) {
 		A as uid
 	}
 	{
 		content(func: uid(A), first:100, offset:0) {
     		id:uid
     		unreadCount
-    		conversationPartner1: participantOne @filter(not uid($currentUserId)){
+    		conversationPartner1 {
       			id:uid
 				firstName
       			lastName
       			photo
     		}
-    		conversationPartner2: participantTwo @filter(not uid($currentUserId)){
+    		conversationPartner2 {
       			id:uid
 				firstName
 				lastName
@@ -190,7 +238,7 @@ var getDialogs = `query GetDialogs($currentUserId: string, $first: int, $offset:
 	}
 }`
 
-var existDialog = `query HasDialog($currentUserId: string, $companionId: string)
+var getIdDialog = `query HasDialog($currentUserId: string, $companionId: string)
 {
 	dialogList(func: type(Dialog)) @filter((uid_in(conversationPartner2,$companionId) and uid_in(conversationPartner1,$currentUserId)) or
 		(uid_in(conversationPartner2,$currentUserId) and uid_in(conversationPartner1,$companionId))) {

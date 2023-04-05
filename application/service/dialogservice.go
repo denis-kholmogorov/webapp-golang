@@ -5,19 +5,31 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"sync"
+	"web/application/domain"
 	"web/application/dto"
 	"web/application/repository"
 	"web/application/utils"
 )
+
+var dialogService DialogService
+var isInitDialogService bool
 
 type DialogService struct {
 	dialogRepository *repository.DialogRepository
 }
 
 func NewDialogService() *DialogService {
-	return &DialogService{
-		dialogRepository: repository.GetDialogRepository(),
+	mt := sync.Mutex{}
+	mt.Lock()
+	if !isInitDialogService {
+		dialogService = DialogService{
+			dialogRepository: repository.GetDialogRepository(),
+		}
+		isInitDialogService = true
 	}
+	mt.Unlock()
+	return &dialogService
 }
 
 func (s DialogService) Unread(c *gin.Context) {
@@ -50,6 +62,11 @@ func (s DialogService) GetMessages(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, messages)
 	}
+}
+
+func (s DialogService) SaveMessage(message *domain.Message) (*domain.Message, error) {
+	return s.dialogRepository.SaveMessage(message)
+
 }
 
 func (s DialogService) UpdateDialogs(c *gin.Context) {

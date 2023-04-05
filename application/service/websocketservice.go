@@ -5,13 +5,32 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"sync"
+	"web/application/domain"
+	"web/application/dto"
+	"web/application/utils"
 )
 
+var websocketService WebsocketService
+var isInitWebsocketService bool
+
 type WebsocketService struct {
+	dialogService *DialogService
+	connections   map[string]*websocket.Conn
 }
 
 func NewWebsocketService() *WebsocketService {
-	return &WebsocketService{}
+	mt := sync.Mutex{}
+	mt.Lock()
+	if !isInitWebsocketService {
+		websocketService = WebsocketService{
+			NewDialogService(),
+			map[string]*websocket.Conn{},
+		}
+		isInitWebsocketService = true
+	}
+	mt.Unlock()
+	return &websocketService
 }
 
 var upgrader = websocket.Upgrader{
@@ -29,20 +48,25 @@ func (s *WebsocketService) Connect(c *gin.Context) {
 		return
 	}
 	defer ws.Close()
+	s.connections[utils.GetCurrentUserId(c)] = ws
+
 	for {
 		//read data from ws
-		mt, message, err := ws.ReadMessage()
+		socketDto := dto.SocketDto[domain.Message]{}
+		err := ws.ReadJSON(&socketDto)
 		if err != nil {
 			log.Println("read:", err)
 			break
 		}
-		log.Printf("recv: %s", message)
 
-		//write ws data
-		err = ws.WriteMessage(mt, message)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
+		saveMessage, err := s.dialogService.SaveMessage(socketDto.Data)
+
+		if s.connections[saveMessage.RecipientId] != nil {
+			err = s.connections[saveMessage.RecipientId].WriteJSON(dto.NewMessageSocketDto(saveMessage))
+			if err != nil {
+				log.Println("write:", err)
+				break
+			}
+		} //write ws data
 	}
 }
