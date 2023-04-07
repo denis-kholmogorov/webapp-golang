@@ -218,7 +218,12 @@ var getDialogs = `query GetDialogs($currentUserId: string, $first: int, $offset:
 	{
 		content(func: uid(A), first:100, offset:0) {
     		id:uid
-    		unreadCount
+    		unreadCount: count(messages @filter(eq(isRead, false) and eq(recipientId, $currentUserId)))
+			lastMessage: messages(orderdesc: timeSend, first: 1){
+					timeSend
+          			messageText
+          			authorId
+        	}
     		conversationPartner1 {
       			id:uid
 				firstName
@@ -262,7 +267,7 @@ var getMessageByDialog = `query Messages($dialogId: string)
 
 var getNotReadMessage = `query getNotRead($currentUserId: string, $companionId: string)  
 {
-		getUnreadMessage(func: type(Message)) @filter(eq(authorId,companionId) and eq(recipientId,$currentUserId)) {
+		getUnreadMessage(func: type(Message)) @filter(eq(authorId,$companionId) and eq(recipientId,$currentUserId)) {
 			A as uid
   		}
 }`

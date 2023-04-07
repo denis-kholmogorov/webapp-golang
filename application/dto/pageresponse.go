@@ -12,7 +12,7 @@ type PageResponse[T any] struct {
 }
 
 type Count struct {
-	TotalElement int `json:"totalElement,omitempty"`
+	TotalElement int `json:"totalElement"`
 }
 
 func (p *PageResponse[any]) SetPage(size int, page int) {

@@ -14,6 +14,7 @@ import (
 
 var dialogService DialogService
 var isInitDialogService bool
+var count dto.Count
 
 type DialogService struct {
 	dialogRepository *repository.DialogRepository
@@ -28,13 +29,14 @@ func NewDialogService() *DialogService {
 		}
 		isInitDialogService = true
 	}
+	count = dto.Count{TotalElement: 0}
 	mt.Unlock()
 	return &dialogService
 }
 
 func (s DialogService) Unread(c *gin.Context) {
 	log.Println("DialogService:GetCountry()")
-	c.JSON(http.StatusOK, "{\"data\":{\"count\":\"1\"}}")
+	c.JSON(http.StatusOK, &count)
 
 }
 

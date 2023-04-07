@@ -8,7 +8,7 @@ type Dialog struct {
 	ConversationPartner1 Account   `json:"conversationPartner1,omitempty"`
 	ConversationPartner2 Account   `json:"conversationPartner2,omitempty"`
 	Messages             []Message `json:"messages"`
-	LastMessage          Message   `json:"lastMessage"`
+	LastMessage          []Message `json:"lastMessage"`
 	DType                []string  `json:"dgraph.type,omitempty"`
 }
 

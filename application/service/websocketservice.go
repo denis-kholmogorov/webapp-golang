@@ -48,7 +48,10 @@ func (s *WebsocketService) Connect(c *gin.Context) {
 		return
 	}
 	defer ws.Close()
+	defer s.deleteConn(utils.GetCurrentUserId(c))
+	log.Printf("before add %d", len(s.connections))
 	s.connections[utils.GetCurrentUserId(c)] = ws
+	log.Printf("after add %d", len(s.connections))
 
 	for {
 		//read data from ws
@@ -69,4 +72,11 @@ func (s *WebsocketService) Connect(c *gin.Context) {
 			}
 		} //write ws data
 	}
+}
+
+func (s *WebsocketService) deleteConn(id string) {
+	log.Printf("before deleted %d", len(s.connections))
+	delete(s.connections, id)
+	log.Printf("after deleted %d", len(s.connections))
+
 }

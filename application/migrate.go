@@ -122,7 +122,6 @@ const CreateFriendshipType = `type Friendship {
 	friendId
 	status
 	previousStatus
-    reverseStatus
 }
 friend: [uid] .
 friendId: string @index(hash) .

@@ -93,40 +93,78 @@ func startDbMigrate(conn *dgo.Dgraph) {
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateAccountType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateAccountType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCaptchaType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateCaptchaType schemas has been closed with error")
+	}
 
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCountryType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateCountryType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreatePostType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreatePostType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCityType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateCityType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateCommentType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateCommentType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateTagType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateTagType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateFriendshipType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateFriendshipType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateLikeType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateLikeType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateDialogType,
 	})
+	if err != nil {
+		log.Fatal("Alter CreateDialogType schemas has been closed with error")
+	}
+
 	err = conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateMessageType,
 	})
-
 	if err != nil {
-		log.Fatal("Alter schemas has been closed with error")
+		log.Fatal("Alter CreateMessageType schemas has been closed with error")
 	}
 
 	if isDropFirst() {
