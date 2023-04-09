@@ -1,23 +1,32 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"sync"
 	"web/application/domain"
 	"web/application/dto"
+	kafkaservice "web/application/kafka"
 	"web/application/repository"
 	"web/application/utils"
 )
 
 var dialogService DialogService
 var isInitDialogService bool
-var count dto.Count
+
+const (
+	Broker1Address = "localhost:9092"
+)
 
 type DialogService struct {
 	dialogRepository *repository.DialogRepository
+	kafkaWriter      *kafka.Writer
 }
 
 func NewDialogService() *DialogService {
@@ -26,17 +35,18 @@ func NewDialogService() *DialogService {
 	if !isInitDialogService {
 		dialogService = DialogService{
 			dialogRepository: repository.GetDialogRepository(),
+			kafkaWriter:      kafkaservice.NewWriterMessage("sendMessage"),
 		}
+		go dialogService.ConsumeMessage(context.Background())
 		isInitDialogService = true
 	}
-	count = dto.Count{TotalElement: 0}
 	mt.Unlock()
 	return &dialogService
 }
 
 func (s DialogService) Unread(c *gin.Context) {
 	log.Println("DialogService:GetCountry()")
-	c.JSON(http.StatusOK, &count)
+	c.JSON(http.StatusOK, dto.Count{TotalElement: 1})
 
 }
 
@@ -66,11 +76,6 @@ func (s DialogService) GetMessages(c *gin.Context) {
 	}
 }
 
-func (s DialogService) SaveMessage(message *domain.Message) (*domain.Message, error) {
-	return s.dialogRepository.SaveMessage(message)
-
-}
-
 func (s DialogService) UpdateDialogs(c *gin.Context) {
 	companionId := c.Param("companionId")
 	currentUserId := utils.GetCurrentUserId(c)
@@ -81,4 +86,50 @@ func (s DialogService) UpdateDialogs(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, "")
 	}
+}
+
+func (s DialogService) SaveMessage(message *domain.Message) (*domain.Message, error) {
+	return s.dialogRepository.SaveMessage(message)
+
+}
+
+func (s DialogService) ConsumeMessage(ctx context.Context) {
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{Broker1Address},
+		Topic:   "receiveMessage",
+		GroupID: "receiveMessage",
+	})
+	for {
+		msg, err := r.ReadMessage(ctx)
+		if err != nil {
+			log.Printf("ERROR: Kafka could not read message " + err.Error())
+			break
+		}
+
+		message := domain.Message{}
+		err = json.Unmarshal(msg.Value, &message)
+		savedMessage, err := s.SaveMessage(&message)
+		if err != nil {
+			log.Println("Kafka can't read message")
+			break
+		}
+		err = s.SendMessage(savedMessage)
+		if err != nil {
+			log.Print("ERROR: Kafka could not read message ", err)
+			break
+		}
+	}
+}
+
+func (s *DialogService) SendMessage(message *domain.Message) error {
+	marshal, _ := json.Marshal(message)
+	err := s.kafkaWriter.WriteMessages(context.Background(), kafka.Message{
+		Key:   []byte(uuid.NewString()),
+		Value: marshal,
+	})
+	if err != nil {
+		log.Print("ERROR: Kafka could not read message ", err)
+		return err
+	}
+	return nil
 }

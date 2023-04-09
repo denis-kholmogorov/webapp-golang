@@ -7,21 +7,18 @@ import (
 	"web/application/domain"
 	"web/application/dto"
 	"web/application/errors"
-	"web/application/kafka"
 	"web/application/repository"
 	"web/application/utils"
 )
 
 type AccountService struct {
 	accountRepository *repository.AccountRepository
-	kafkaSender       *kafkasender.KafkaSender
 	person            domain.Account
 }
 
 func NewAccountService() *AccountService {
 	return &AccountService{
 		accountRepository: repository.GetAccountRepository(),
-		kafkaSender:       kafkasender.NewKafkaSender(),
 	}
 }
 
