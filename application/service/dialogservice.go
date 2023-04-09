@@ -94,11 +94,7 @@ func (s DialogService) SaveMessage(message *domain.Message) (*domain.Message, er
 }
 
 func (s DialogService) ConsumeMessage(ctx context.Context) {
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{Broker1Address},
-		Topic:   "receiveMessage",
-		GroupID: "receiveMessage",
-	})
+	r := kafkaservice.NewReaderMessage("receiveMessage", "receiveMessage")
 	for {
 		msg, err := r.ReadMessage(ctx)
 		if err != nil {

@@ -60,13 +60,13 @@ func (s *WebsocketService) Connect(c *gin.Context) {
 		socketDto := dto.SocketDto[domain.Message]{}
 		err = ws.ReadJSON(&socketDto)
 		if err != nil {
-			log.Println("ERROR::Websocket read message:", err)
-			continue
+			log.Println("ERROR::WebsocketService.Conn() read message:", err)
+			break
 		}
 		err = s.ReceiveMessage(socketDto.Data)
 		if err != nil {
-			log.Print("ERROR: Websocket kafka send message:", err)
-			continue
+			log.Println("ERROR: Websocket kafka send message:", err)
+			break
 		}
 	} //write ws data
 }
@@ -74,7 +74,7 @@ func (s *WebsocketService) Connect(c *gin.Context) {
 func (s *WebsocketService) ReceiveMessage(message *domain.Message) error {
 	marshal, err := json.Marshal(message)
 	if err != nil {
-		log.Print("ERROR: WebsocketService.ReceiveMessage() cannot marshal", err)
+		log.Println("ERROR: WebsocketService.ReceiveMessage() cannot marshal", err)
 		return err
 	}
 	err = s.kafkaWriter.WriteMessages(context.Background(), kafka.Message{
@@ -101,11 +101,7 @@ func (s *WebsocketService) SendSocketMessage(savedMessage *domain.Message) error
 }
 
 func (s *WebsocketService) SendMessage(ctx context.Context) {
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{Broker1Address},
-		Topic:   "sendMessage",
-		GroupID: "sendMessage",
-	})
+	r := kafkaservice.NewReaderMessage("sendMessage", "sendMessage")
 	for {
 		msg, err := r.ReadMessage(ctx)
 		if err != nil {
