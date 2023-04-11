@@ -1,14 +1,12 @@
 package domain
 
 type Friendship struct {
-	Id             string    `json:"id,omitempty"`
-	Uid            string    `json:"uid,omitempty"`
-	Friend         []Account `json:"friend,omitempty"`
-	FriendId       string    `json:"friendId,omitempty"`
-	Status         string    `json:"status,omitempty"`
-	PreviousStatus string    `json:"previousStatus,omitempty"`
-	ReverseStatus  string    `json:"reverseStatus,omitempty"`
-	DType          []string  `json:"dgraph.type,omitempty"`
+	Id             string   `json:"id,omitempty"`
+	Uid            string   `json:"uid,omitempty"`
+	Friend         Account  `json:"friend,omitempty"`
+	Status         string   `json:"status,omitempty"`
+	PreviousStatus string   `json:"previousStatus,omitempty"`
+	DType          []string `json:"dgraph.type,omitempty"`
 }
 
 type Friendships struct {

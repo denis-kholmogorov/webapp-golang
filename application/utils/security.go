@@ -1,17 +1,15 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"web/application/errors"
+	"web/application/errorhandler"
 )
 
 func GetCurrentUserId(c *gin.Context) string {
 	value, ok := c.Get("id")
-	if ok {
-		return value.(string)
+	if !ok {
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("Гtils:GetCurrentUserId() Error get id from context")})
 	}
-	c.AbortWithStatusJSON(http.StatusUnauthorized, errors.ErrorDescription{ErrorDescription: "Not found user id"})
-	return ""
-
+	return value.(string)
 }

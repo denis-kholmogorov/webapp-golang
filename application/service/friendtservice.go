@@ -23,22 +23,14 @@ func NewFriendService() *FriendService {
 
 func (s *FriendService) Request(c *gin.Context) {
 	friendId := c.Param("id")
-	err := s.friendRepository.RequestFriend(utils.GetCurrentUserId(c), friendId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, "")
-	}
+	s.friendRepository.RequestFriend(utils.GetCurrentUserId(c), friendId)
+	c.Status(http.StatusOK)
 }
 
 func (s *FriendService) Approve(c *gin.Context) {
 	friendId := c.Param("id")
-	err := s.friendRepository.ApproveFriend(utils.GetCurrentUserId(c), friendId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, "")
-	}
+	s.friendRepository.ApproveFriend(utils.GetCurrentUserId(c), friendId)
+	c.JSON(http.StatusOK, "")
 }
 
 func (s *FriendService) FindAll(c *gin.Context) {

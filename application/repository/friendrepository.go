@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"web/application/domain"
 	"web/application/dto"
+	"web/application/errorhandler"
 	"web/application/utils"
 )
 
@@ -29,23 +30,21 @@ func GetFriendRepository() *FriendRepository {
 	return friendRepo
 }
 
-func (r FriendRepository) RequestFriend(currentUserId string, friendId string) error {
-	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.REQUEST_TO, FriendId: friendId, ReverseStatus: domain.REQUEST_FROM, DType: []string{"Friendship"}}
-	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.REQUEST_FROM, FriendId: currentUserId, ReverseStatus: domain.REQUEST_TO, DType: []string{"Friendship"}}
+func (r FriendRepository) RequestFriend(currentUserId string, friendId string) {
+	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: domain.REQUEST_TO, DType: []string{"Friendship"}}
+	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: domain.REQUEST_FROM, DType: []string{"Friendship"}}
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 
 	friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:Request() Error marhalling friend %s", err)
-		return fmt.Errorf("FriendRepository:Request() Error marhalling friend %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("FriendRepository:RequestFriend() Marshal error %s", err)})
 	}
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: friendshipsm})
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:Request() Error mutate %s", err)
-		return fmt.Errorf("FriendRepository:Request() Error mutate %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Request() Error mutate %s", err)})
 	}
 	edges := []dto.Edge{
 		{currentUserId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
@@ -54,11 +53,13 @@ func (r FriendRepository) RequestFriend(currentUserId string, friendId string) e
 		{mutate.GetUids()["friendFrom"], "friend", currentUserId}, // дружба друга добавляет текущего
 	}
 	err = AddEdges(txn, ctx, edges, true)
-
-	return err
+	if err != nil {
+		txn.Discard(ctx)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Request() AddEdges Error mutate %s", err)})
+	}
 }
 
-func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) error {
+func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) {
 	ctx := context.Background()
 	variables := make(map[string]string)
 	variables["$currentUserId"] = currentUserId
@@ -75,14 +76,10 @@ func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) e
 		CommitNow: true,
 	}
 
-	// Update email only if matching uid found.
-	resp, err := r.conn.NewTxn().Do(ctx, req)
+	_, err := r.conn.NewTxn().Do(ctx, req)
 	if err != nil {
-		return err
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:ApproveFriend() ApproveFriend Error mutate %s", err)})
 	}
-	log.Printf(string(rune(len(resp.Uids))))
-
-	return nil
 }
 
 func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCode, page dto.PageRequest) (interface{}, interface{}) {
@@ -277,8 +274,8 @@ func (r FriendRepository) Block(currentUserId string, friendId string) error {
 }
 
 func (r FriendRepository) createFriendship(ctx context.Context, txn *dgo.Txn, currentUserId, friendId, statusToFriend, statusFromFriend string) error {
-	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: statusToFriend, FriendId: friendId, DType: []string{"Friendship"}}
-	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: statusFromFriend, FriendId: currentUserId, DType: []string{"Friendship"}}
+	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: statusToFriend, DType: []string{"Friendship"}}
+	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: statusFromFriend, DType: []string{"Friendship"}}
 	friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
 	if err != nil {
 		txn.Discard(ctx)
@@ -332,12 +329,12 @@ var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $f
 
 var getFriendship = `query setFriend($currentUserId: string, $friendId: string)  {
 	fr1(func: uid($currentUserId)){
-		friends @filter(eq(friendId,$friendId)){
+		friends @filter(uid_in(friend, $friendId)){
 			A as uid
 		}
 	}
 	fr2(func: uid($friendId)){
-		friends @filter(eq(friendId,$currentUserId)){
+		friends @filter(uid_in(friend,$currentUserId)){
 			B as uid
 		}
 	}
@@ -345,18 +342,17 @@ var getFriendship = `query setFriend($currentUserId: string, $friendId: string) 
 
 var getFriendshipStatus = `query setFriend($currentUserId: string, $friendId: string)  {
 	fr1(func: uid($currentUserId)){
-		friends @filter(eq(friendId,$friendId)){
+		friends @filter(uid_in(friend,$friendId)){
 			A as uid
 		}
 	}
 	fr2(func: uid($friendId)){
-		friends @filter(eq(friendId,$currentUserId)){
+		friends @filter(uid_in(friend,$currentUserId)){
 			B as uid
 		}
 	}
 	 friendships(func: uid(A,B)){
       uid
-      friendId
       status
       previousStatus
     }
@@ -373,13 +369,13 @@ var blockFriendship = `uid(A) <status> "%s" .
 var deleteFriendship = `query setFriend($currentUserId: string, $friendId: string)  {
 	fr1(func: uid($currentUserId)){
 		A as uid
-		friends @filter(eq(friendId,$friendId)){
+		friends @filter(uid_in(friend,$friendId)){
 			B as uid
 		}
 	}
 	fr2(func: uid($friendId)){
 		C as uid
-		friends @filter(eq(friendId,$currentUserId)){
+		friends @filter(uid_in(friend,$currentUserId)){
 			D as uid
 		}
 	}
