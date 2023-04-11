@@ -6,13 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 	"web/application/domain"
 	"web/application/dto"
+	"web/application/errorhandler"
 	"web/application/mapper"
 	"web/application/repository"
 	"web/application/utils"
@@ -35,83 +35,59 @@ func NewAuthService() *AuthService {
 
 func (s *AuthService) Registration(c *gin.Context) {
 	reg := dto.RegistrationDto{}
-	err := c.BindJSON(&reg)
-	if err != nil {
-		log.Fatal(err)
+	utils.BindJson(c, &reg)
+
+	capt := s.captchaRepository.FindById(reg.CaptchaSecret)
+	if capt.CaptchaCode != reg.CaptchaCode || time.Now().After(capt.ExpiredTime.Add(time.Minute*10)) {
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AuthService:Registration() Error with capthca code")})
 	}
 
-	capt, err := s.captchaRepository.FindById(reg.CaptchaSecret)
-	if err != nil || capt.CaptchaCode != reg.CaptchaCode || time.Now().After(capt.ExpiredTime.Add(time.Minute*10)) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Registration incorrect"))
-		return
-	}
-
-	accounts, err := s.accountRepository.FindByEmail(reg.Email)
-	if len(accounts) != 0 || err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Email already exists"))
-		return
+	accounts := s.accountRepository.FindByEmail(reg.Email)
+	if len(accounts) != 0 {
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("AuthService.Registration() Email already exists %s", reg.Email)})
 	}
 
 	hashPass, err := bcrypt.GenerateFromPassword([]byte(reg.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Password incorrect"))
-		return
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("AuthService.Registration() Generate password is fail %s", reg.Email)})
 	}
+
 	account := s.mapper.RegistrationToAccount(reg, hashPass)
-	err = s.accountRepository.Save(account)
-	switch {
-	case err != nil:
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with not found"))
-	default:
-		c.Status(http.StatusCreated)
-	}
+	s.accountRepository.Save(account)
+
+	c.Status(http.StatusCreated)
 }
 
 func (s *AuthService) Login(c *gin.Context) {
 	login := domain.LoginDto{}
-	c.BindJSON(&login)
-	accounts, err := s.accountRepository.FindByEmail(login.Email)
+	utils.BindJson(c, &login)
+
+	accounts := s.accountRepository.FindByEmail(login.Email)
 	if len(accounts) != 1 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Login: has been found wore then one account by this email"))
-		return
+		panic(errorhandler.NotFoundError{Message: fmt.Sprintf("AuthService.Login() Account not found by email %s", login.Email)})
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(accounts[0].Password), []byte(login.Password))
-	switch {
-	case err != nil:
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Error %s", err))
-	default:
-		loginResponse, err := createJwtToken(accounts[0])
-		if err != nil {
-			c.JSON(http.StatusBadRequest, err)
-		}
-		c.JSON(http.StatusOK, loginResponse)
+	err := bcrypt.CompareHashAndPassword([]byte(accounts[0].Password), []byte(login.Password))
+	if err != nil {
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("AuthService.Login() Password not equals  %s", login.Email)})
 	}
 
+	loginResponse := createJwtToken(accounts[0])
+	c.JSON(http.StatusOK, loginResponse)
 }
 
 func (s *AuthService) Logout(c *gin.Context) {
-	c.JSON(http.StatusOK, "")
+	c.Status(http.StatusOK)
 }
 
 func (s *AuthService) GetCaptcha(c *gin.Context) {
 	newCaptcha := utils.CreateCaptcha()
-	captchaId, err := s.captchaRepository.Save(newCaptcha)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("getCaptcha failed"))
-		return
-	}
-
-	image, err := utils.CreateImage(*captchaId, newCaptcha)
-
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("getCaptcha failed"))
-		return
-	}
-	c.JSON(http.StatusOK, dto.CaptchaDto{Secret: *captchaId, Image: image})
+	captchaId := s.captchaRepository.Save(newCaptcha)
+	image := utils.CreateImage(captchaId, newCaptcha)
+	c.JSON(http.StatusOK, dto.CaptchaDto{Secret: captchaId, Image: image})
 }
 
-func createJwtToken(account domain.Account) (*domain.LoginResponse, error) {
+func createJwtToken(account domain.Account) *domain.LoginResponse {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	claims := token.Claims.(jwt.MapClaims)
@@ -127,14 +103,13 @@ func createJwtToken(account domain.Account) (*domain.LoginResponse, error) {
 	if ok {
 		signedString, err := token.SignedString([]byte(env))
 		if err != nil {
-			return nil, err
+			panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("Registration.createJwtToken() Error with create token for account %s", account.Id)})
 		}
 		return &domain.LoginResponse{
 			AccessToken:  signedString,
 			RefreshToken: signedString,
-		}, err
+		}
 	} else {
-		return nil, fmt.Errorf("not value for signed key")
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("Registration.createJwtToken() Not value SECRET_KEY for signed key")})
 	}
-
 }

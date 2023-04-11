@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"web/application/errorhandler"
 	"web/application/repository"
 	"web/application/resource"
 	"web/application/security"
@@ -32,6 +33,7 @@ func main() {
 
 	server := gin.Default()
 	server.Use(security.NewSecurity().AuthMiddleware)
+	server.Use(errorhandler.ErrorHandler())
 
 	resource.GeoResource(server, service.NewGeoService())
 	resource.AuthResource(server, service.NewAuthService())
@@ -50,8 +52,6 @@ func main() {
 }
 
 func createDbConnection() *dgo.Dgraph {
-	// Dial a gRPC connection. The address to dial to can be configured when
-	// setting up the dgraph cluster.
 	d, err := grpc.Dial(getDBUrl(), grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)

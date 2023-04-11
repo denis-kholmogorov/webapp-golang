@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
-	"log"
 	"strconv"
 	"time"
 	"web/application/domain"
 	"web/application/dto"
+	"web/application/errorhandler"
 	"web/application/utils"
 )
 
@@ -32,71 +32,66 @@ func GetAccountRepository() *AccountRepository {
 	return accountRepo
 }
 
-func (r AccountRepository) Save(account *domain.Account) error {
+func (r AccountRepository) Save(account *domain.Account) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	accountm, err := json.Marshal(account)
 	if err != nil {
-		log.Printf("AccountRepository:save() Error marhalling account %s", err)
-		return fmt.Errorf("AccountRepository:Create() Error marhalling account %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:Save() Error marhalling account %s", err)})
 	}
 	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
-		log.Printf("AccountRepository:save() Error mutate %s", err)
-		return fmt.Errorf("AccountRepository:Create() Error mutate %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:save() Error mutate %s", err)})
 	}
-
-	return nil // TODO добавить получение юзера
+	// TODO добавить получение юзера
 }
 
-func (r AccountRepository) FindByEmail(email string) ([]domain.Account, error) {
+func (r AccountRepository) FindByEmail(email string) []domain.Account {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	variables := make(map[string]string)
 	variables["$email"] = email
 	vars, err := txn.QueryWithVars(ctx, existEmail, variables)
 	if err != nil {
-		log.Printf("AccountRepository:existsEmail() Error query %s", err)
-		return nil, fmt.Errorf("AccountRepository:existsEmail() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:FindByEmail() Error query %s", err)})
 	}
 	response := struct {
 		Accounts []domain.Account `json:"accounts"`
 	}{}
 	err = json.Unmarshal(vars.Json, &response)
-
 	if err != nil {
-		log.Printf("AccountRepository:FindById() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("AccountRepository:existsEmail() Error Unmarshal %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:FindByEmail() Error Unmarshal %s", err)})
 	}
-	return response.Accounts, nil
+	return response.Accounts
 
 }
 
-func (r AccountRepository) FindById(id string) (*domain.Account, error) {
+func (r AccountRepository) FindById(id string) *domain.Account {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	variables := make(map[string]string)
 	variables["$id"] = id
 	vars, err := txn.QueryWithVars(ctx, findById, variables)
 	if err != nil {
-		log.Printf("AccountRepository:existsEmail() Error query %s", err)
-		return nil, fmt.Errorf("AccountRepository:existsEmail() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:existsEmail() Error query %s", err)})
 	}
 	response := struct {
 		Accounts []domain.Account `json:"account"`
 	}{}
 	err = json.Unmarshal(vars.Json, &response)
 
-	if err != nil || len(response.Accounts) != 1 {
-		log.Printf("AccountRepository:FindById() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("AccountRepository:existsEmail() Error Unmarshal %s", err)
+	if err != nil {
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:FindById() Error Unmarshal %s", err)})
+	}
+	if len(response.Accounts) != 1 {
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("AccountRepository:FindById() Error not found by id %s", err)})
 	}
 
-	return &response.Accounts[0], nil
+	return &response.Accounts[0]
 
 }
 
-func (r AccountRepository) Update(account *domain.Account) (*string, error) {
+func (r AccountRepository) Update(account *domain.Account) string {
 	timeNow := time.Now().UTC()
 	account.DType = []string{"Account"}
 	account.UpdatedOn = &timeNow
@@ -104,18 +99,16 @@ func (r AccountRepository) Update(account *domain.Account) (*string, error) {
 	txn := r.conn.NewTxn()
 	accountm, err := json.Marshal(account)
 	if err != nil {
-		log.Printf("AccountRepository:Update() Error marhalling account %s", err)
-		return nil, fmt.Errorf("AccountRepository:Update() Error marhalling account %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:Update() Error marhalling account %s", err)})
 	}
 	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
-		log.Printf("AccountRepository:Update() Error mutate %s", err)
-		return nil, fmt.Errorf("AccountRepository:Update() Error mutate %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:Update() Error mutate %s", err)})
 	}
-	return &account.Id, nil
+	return account.Id
 }
 
-func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId string) (*dto.PageResponse[domain.Account], error) {
+func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId string) *dto.PageResponse[domain.Account] {
 	variables := make(map[string]string)
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
@@ -137,19 +130,16 @@ func (r AccountRepository) FindAll(searchDto dto.AccountSearchDto, currentId str
 	}
 
 	if err != nil {
-		log.Printf("accountRepository findAll query with error %s", err)
-		return nil, fmt.Errorf("accountRepository findAll query with error")
+		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:FindAll() Error query %s", err)})
 	}
 
 	response := dto.PageResponse[domain.Account]{}
 	err = json.Unmarshal(vars.Json, &response)
-
 	if err != nil {
-		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:FindAll() Error Unmarshal %s", err)})
 	}
 	response.SetPage(searchDto.Size, searchDto.Page)
-	return &response, nil
+	return &response
 }
 
 func createSearchQuery() map[int]string {

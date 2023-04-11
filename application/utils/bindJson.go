@@ -3,21 +3,19 @@ package utils
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"web/application/errorhandler"
 )
 
 func BindJson(c *gin.Context, value any) {
 	err := c.BindJSON(value)
 	if err != nil {
-		fmt.Printf("Can't parse json from request %s", err.Error())
-		c.AbortWithStatus(http.StatusBadRequest)
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("Utils:BindJson() Can't parse json from request %s", err)})
 	}
 }
 
 func BindQuery(c *gin.Context, value any) {
 	err := c.BindQuery(value)
 	if err != nil {
-		fmt.Printf(err.Error())
-		c.AbortWithStatus(http.StatusBadRequest)
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("Utils:BindQuery() Can't parse query from request %s", err)})
 	}
 }

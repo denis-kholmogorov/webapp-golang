@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/dgo/v210"
-	"log"
 	"web/application/domain"
+	"web/application/errorhandler"
 )
 
 var geoRepo *GeoRepository
@@ -25,39 +25,37 @@ func GetGeoRepository() *GeoRepository {
 	return geoRepo
 }
 
-func (r GeoRepository) FindAll() ([]domain.Country, error) {
+func (r GeoRepository) FindAll() []domain.Country {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	vars, err := txn.Query(ctx, getAllCountries)
 	if err != nil {
-		log.Printf("GeoRepository:FindAll() Error query %s", err)
-		return nil, fmt.Errorf("GeoRepository:FindAll() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("GeoRepository:FindAll() Error query %s", err)})
 	}
 	captchaList := domain.CountriesList{}
-
 	err = json.Unmarshal(vars.Json, &captchaList)
-	return captchaList.List, nil
+	if err != nil {
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("GeoRepository:FindAll() Error Unmarshal %s", err)})
+	}
+	return captchaList.List
 
 }
 
-func (r GeoRepository) FindCitiesByCountryId(id string) ([]domain.City, error) {
+func (r GeoRepository) FindCitiesByCountryId(id string) []domain.City {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	variables := make(map[string]string)
 	variables["$countryId"] = id
 	vars, err := txn.QueryWithVars(ctx, getAllCities, variables)
-
-	captchaList := domain.CountriesList{}
 	if err != nil {
-		log.Printf("GeoRepository:FindCitiesByCountryId() Error query %s", err)
-		return nil, fmt.Errorf("GeoRepository:FindCitiesByCountryId() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("GeoRepository:FindCitiesByCountryId() Error query %s", err)})
 	}
+	captchaList := domain.CountriesList{}
 	err = json.Unmarshal(vars.Json, &captchaList)
 	if err != nil {
-		log.Printf("GeoRepository:FindCitiesByCountryId() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("GeoRepository:FindCitiesByCountryId() Error Unmarshal %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("GeoRepository:FindCitiesByCountryId() Error Unmarshal %s", err)})
 	}
-	return captchaList.List[0].Cities, nil
+	return captchaList.List[0].Cities
 }
 
 var getAllCountries = `{ countriesList (func: type(Country)) {

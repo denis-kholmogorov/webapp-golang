@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/dchest/captcha"
-	"log"
 	"strconv"
 	"web/application/domain"
+	"web/application/errorhandler"
 )
 
 func CreateCaptcha() *domain.Captcha {
@@ -19,15 +19,13 @@ func CreateCaptcha() *domain.Captcha {
 	return domain.NewCaptchaWithCode(bufferCode.String(), captchaCode)
 }
 
-func CreateImage(captchaId string, newCaptcha *domain.Captcha) (string, error) {
+func CreateImage(captchaId string, newCaptcha *domain.Captcha) string {
 	image := captcha.NewImage(captchaId, newCaptcha.CaptchaCodeByte, 150, 75)
 	buffer := bytes.Buffer{}
 	_, err := image.WriteTo(&buffer)
 	if err != nil {
-		log.Printf("utils.captcha: CreateImage() Error write to buffer captcha %s", err)
-		return "", fmt.Errorf("utils.captcha: CreateImage() Error write to buffer captcha %s", err)
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("Utils:CreateImage() Error write to buffer captcha %s", err)})
 	}
-
-	return "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buffer.Bytes()), nil
+	return "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buffer.Bytes())
 
 }
