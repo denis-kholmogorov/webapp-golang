@@ -39,11 +39,11 @@ func (r AccountRepository) Save(account *domain.Account) {
 	if err != nil {
 		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:Save() Error marhalling account %s", err)})
 	}
-	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
+	mu, err := txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
 		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:save() Error mutate %s", err)})
 	}
-	// TODO добавить получение юзера
+	mu.GetUids()
 }
 
 func (r AccountRepository) FindByEmail(email string) []domain.Account {

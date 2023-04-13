@@ -19,9 +19,10 @@ import (
 )
 
 type AuthService struct {
-	accountRepository *repository.AccountRepository
-	captchaRepository *repository.CaptchaRepository
-	mapper            *mapper.PersonMapper
+	accountRepository  *repository.AccountRepository
+	captchaRepository  *repository.CaptchaRepository
+	settingsRepository *repository.SettingsRepository
+	mapper             *mapper.PersonMapper
 }
 
 func NewAuthService() *AuthService {

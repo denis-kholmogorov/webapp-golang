@@ -82,7 +82,7 @@ func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) {
 	}
 }
 
-func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCode, page dto.PageRequest) (interface{}, interface{}) {
+func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCode, page dto.PageRequest) *dto.PageResponse[domain.Account] {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -94,26 +94,26 @@ func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCod
 	variables["$statusCode"] = statusCode.StatusCode
 
 	vars, err = txn.QueryWithVars(ctx, getAllFriends, variables)
-
 	if err != nil {
-		log.Printf("FriendRepository:FindAll() Error query %s", err)
-		return nil, fmt.Errorf("FriendRepository:FindAll() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:FindAll() Error query getAllFriends %s", err)})
 	}
+
 	response := dto.PageResponse[domain.Account]{}
+
 	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:FindAll() Error Unmarshal getAllFriends %s", err)})
+	}
+
 	for i := range response.Content {
 		response.Content[i].StatusCode = statusCode.StatusCode
 	}
-	if err != nil {
-		log.Printf("FriendRepository:FindAll() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
-	}
 
 	response.SetPage(page.Size, page.Page)
-	return &response, nil
+	return &response
 }
 
-func (r FriendRepository) Delete(currentUserId string, friendId string) error {
+func (r FriendRepository) Delete(currentUserId string, friendId string) {
 	ctx := context.Background()
 	variables := make(map[string]string)
 	variables["$currentUserId"] = currentUserId
@@ -131,16 +131,13 @@ func (r FriendRepository) Delete(currentUserId string, friendId string) error {
 	}
 
 	// Update email only if matching uid found.
-	resp, err := r.conn.NewTxn().Do(ctx, req)
+	_, err := r.conn.NewTxn().Do(ctx, req)
 	if err != nil {
-		return err
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Delete() Error query deleteFriendship %s", err)})
 	}
-	log.Printf(string(rune(len(resp.Uids))))
-
-	return nil
 }
 
-func (r FriendRepository) Count(currentUserId string) (int, error) {
+func (r FriendRepository) Count(currentUserId string) int {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -148,23 +145,23 @@ func (r FriendRepository) Count(currentUserId string) (int, error) {
 	variables := make(map[string]string)
 	variables["$currentUserId"] = currentUserId
 	variables["$status"] = domain.REQUEST_FROM
-	vars, err = txn.QueryWithVars(ctx, getCount, variables)
 
+	vars, err = txn.QueryWithVars(ctx, getCount, variables)
 	if err != nil {
-		log.Printf("FriendRepository:FindAll() Error query %s", err)
-		return 0, fmt.Errorf("FriendRepository:FindAll() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Count() Error query getCount %s", err)})
 	}
+
 	response := domain.CountRequest{}
+
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
-		log.Printf("FriendRepository:FindAll() Error Unmarshal %s", err)
-		return 0, fmt.Errorf("FriendRepository:FindAll() Error Unmarshal %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("FriendRepository:Count() Error Unmarshal getCount %s", err)})
 	}
 
 	if len(response.CountRequest) > 0 {
-		return response.CountRequest[0].Count, nil
+		return response.CountRequest[0].Count
 	} else {
-		return 0, nil
+		return 0
 	}
 }
 
@@ -196,7 +193,7 @@ func (r FriendRepository) getMyFriends(currentUserId string) ([]string, error) {
 	return ids, nil
 }
 
-func (r FriendRepository) Recommendations(currentUserId string) ([]domain.Account, error) {
+func (r FriendRepository) Recommendations(currentUserId string) []domain.Account {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -204,42 +201,44 @@ func (r FriendRepository) Recommendations(currentUserId string) ([]domain.Accoun
 	variables := make(map[string]string)
 	variables["$currentUserId"] = currentUserId
 	variables["$statusFriend"] = domain.FRIEND
+
 	vars, err = txn.QueryWithVars(ctx, getRecommendations, variables)
+	if err != nil {
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Recommendations() Error query getRecommendations %s", err)})
+	}
+
+	response := dto.PageResponse[domain.Account]{}
+
+	err = json.Unmarshal(vars.Json, &response)
 
 	if err != nil {
-		log.Printf("FriendRepository:Recommendations() Error query %s", err)
-		return nil, fmt.Errorf("FriendRepository:Recommendations() Error query %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("FriendRepository:Recommendations() Error marshal getRecommendations %s", err)})
 	}
-	response := dto.PageResponse[domain.Account]{}
-	err = json.Unmarshal(vars.Json, &response)
-	if err != nil {
-		log.Printf("FriendRepository:Recommendations() Error Unmarshal %s", err)
-		return nil, fmt.Errorf("FriendRepository:Recommendations() Error Unmarshal %s", err)
-	}
-	return response.Content, nil
+	return response.Content
 }
 
-func (r FriendRepository) Block(currentUserId string, friendId string) error {
+func (r FriendRepository) Block(currentUserId string, friendId string) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	variables := make(map[string]string)
 	variables["$currentUserId"] = currentUserId
 	variables["$friendId"] = friendId
+
 	vars, err := txn.QueryWithVars(ctx, getFriendshipStatus, variables)
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:Block() Error query %s", err)
-		return fmt.Errorf("FriendRepository:Block() Error query %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error query getFriendshipStatus %s", err)})
 	}
+
 	response := domain.Friendships{}
+
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:Block() Error Unmarshal %s", err)
-		return fmt.Errorf("FriendRepository:Block() Error Unmarshal %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error getFriendshipStatus %s", err)})
 	}
 	if len(response.Friendships) == 0 {
-		return r.createFriendship(ctx, txn, currentUserId, friendId, domain.BLOCKED, domain.NONE)
+		r.createFriendship(ctx, txn, currentUserId, friendId, domain.BLOCKED, domain.NONE)
 	} else {
 		var mu *api.Mutation
 		if response.Friendships[0].Status != domain.BLOCKED {
@@ -249,7 +248,7 @@ func (r FriendRepository) Block(currentUserId string, friendId string) error {
 		} else {
 			if response.Friendships[0].PreviousStatus == "" {
 				txn.Commit(ctx)
-				return r.Delete(currentUserId, friendId)
+				r.Delete(currentUserId, friendId)
 			}
 			mu = &api.Mutation{
 				SetNquads: []byte(fmt.Sprintf(blockFriendship, response.Friendships[0].PreviousStatus, response.Friendships[1].PreviousStatus, "", "")),
@@ -264,29 +263,27 @@ func (r FriendRepository) Block(currentUserId string, friendId string) error {
 		}
 
 		// Update email only if matching uid found.
-		resp, err := r.conn.NewTxn().Do(ctx, req)
+		_, err = r.conn.NewTxn().Do(ctx, req)
 		if err != nil {
-			return err
+			panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error mutate getFriendship %s", blockFriendship)})
 		}
-		log.Printf(string(rune(len(resp.Uids))))
+
 	}
-	return nil
 }
 
-func (r FriendRepository) createFriendship(ctx context.Context, txn *dgo.Txn, currentUserId, friendId, statusToFriend, statusFromFriend string) error {
+func (r FriendRepository) createFriendship(ctx context.Context, txn *dgo.Txn, currentUserId, friendId, statusToFriend, statusFromFriend string) {
 	friendshipTo := domain.Friendship{Uid: "_:friendTo", Status: statusToFriend, DType: []string{"Friendship"}}
 	friendshipFrom := domain.Friendship{Uid: "_:friendFrom", Status: statusFromFriend, DType: []string{"Friendship"}}
 	friendshipsm, err := json.Marshal([]domain.Friendship{friendshipTo, friendshipFrom})
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:Request() Error marhalling friend %s", err)
-		return fmt.Errorf("FriendRepository:Request() Error marhalling friend %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("FriendRepository:createFriendship() Error marshal createFriendship %s", err)})
 	}
+
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: friendshipsm})
 	if err != nil {
 		txn.Discard(ctx)
-		log.Printf("FriendRepository:Request() Error mutate %s", err)
-		return fmt.Errorf("FriendRepository:Request() Error mutate %s", err)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:createFriendship() Error mutate createFriendship %s", err)})
 	}
 	edges := []dto.Edge{
 		{currentUserId, "friends", mutate.GetUids()["friendTo"]},  // текущий добавляет дружбу TO
@@ -297,9 +294,8 @@ func (r FriendRepository) createFriendship(ctx context.Context, txn *dgo.Txn, cu
 	err = AddEdges(txn, ctx, edges, true)
 	if err != nil {
 		txn.Discard(ctx)
-		return err
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:createFriendship() Error AddEdges createFriendship %s", err)})
 	}
-	return nil
 }
 
 var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)

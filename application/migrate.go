@@ -1,5 +1,114 @@
 package main
 
+import (
+	"context"
+	"github.com/dgraph-io/dgo/v210"
+	"github.com/dgraph-io/dgo/v210/protos/api"
+	"log"
+)
+
+func StartDbMigrate(conn *dgo.Dgraph) {
+
+	err := conn.Alter(context.Background(), &api.Operation{
+		DropAll: isDropFirst(),
+	})
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateAccountType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateAccountType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateCaptchaType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateCaptchaType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateCountryType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateCountryType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreatePostType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreatePostType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateCityType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateCityType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateCommentType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateCommentType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateTagType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateTagType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateFriendshipType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateFriendshipType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateLikeType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateLikeType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateDialogType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateDialogType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateMessageType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateMessageType schemas has been closed with error")
+	}
+
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateSettingsType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateSettingsType schemas has been closed with error")
+	}
+
+	if isDropFirst() {
+		txn := conn.NewTxn()
+		marshalR := []byte(InsertCountryRu)
+		marshalRB := []byte(InsertRB)
+		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalR})
+		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalRB, CommitNow: true})
+		if err != nil {
+			log.Fatal("Import new data has been closed with error")
+		}
+	}
+}
+
 const CreateAccountType = `type Account {
     email
     firstName
@@ -24,6 +133,7 @@ const CreateAccountType = `type Account {
 	updatedOn
 	birthDate
 	lastOnlineTime
+    settings
 }
 
 email: string @index(term) @lang .
@@ -49,6 +159,7 @@ birthDate: datetime @index(day).
 lastOnlineTime: datetime .
 posts: [uid] @reverse .
 friends: [uid] @reverse .
+settings: uid .
 `
 
 const CreatePostType = `type Post {
@@ -191,6 +302,26 @@ const CreateCountryType = `type Country {
 countryTitle: string @lang .
 cities: [uid] .`
 
+const CreateSettingsType = `type Settings {
+	enablePost
+    enablePostComment
+	enableCommentComment
+	enableMessage
+	enableFriendRequest
+	enableFriendBirthday
+	enableSendEmailMessage
+	enableIsDeleted
+}
+
+enablePost: bool .
+enablePostComment: bool .
+enableCommentComment: bool .
+enableMessage: bool .
+enableFriendRequest: bool .
+enableFriendBirthday: bool .
+enableSendEmailMessage: bool .
+enableIsDeleted: bool .`
+
 const InsertCountryRu = `{
 "countryTitle":"Россия",
 "cities":[
@@ -213,10 +344,4 @@ const InsertRB = `{
 {"cityTitle":"Орша","dgraph.type":["City"]}
 ],
 "dgraph.type":["Country"]
-}`
-
-const FindByEmail = `{
-	q (func: eq(email, "%s")) {
-		email
-	}
 }`

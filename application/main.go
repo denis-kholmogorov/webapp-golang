@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"github.com/dgraph-io/dgo/v210"
 	"github.com/dgraph-io/dgo/v210/protos/api"
@@ -28,7 +27,7 @@ func init() {
 
 func main() {
 	connection := createDbConnection()
-	startDbMigrate(connection)
+	StartDbMigrate(connection)
 	repository.NewDGraphConn(connection)
 
 	server := gin.Default()
@@ -43,6 +42,7 @@ func main() {
 	resource.StorageResource(server, service.NewStorageService())
 	resource.DialogResource(server, service.NewDialogService())
 	resource.WebsocketResource(server, service.NewWebsocketService())
+	resource.SettingsResource(server, service.NewSettingsService())
 
 	err := server.Run()
 	if err != nil {
@@ -82,100 +82,4 @@ func isDropFirst() bool {
 	}
 
 	return isDrop
-}
-
-func startDbMigrate(conn *dgo.Dgraph) {
-
-	err := conn.Alter(context.Background(), &api.Operation{
-		DropAll: isDropFirst(),
-	})
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateAccountType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateAccountType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateCaptchaType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateCaptchaType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateCountryType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateCountryType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreatePostType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreatePostType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateCityType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateCityType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateCommentType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateCommentType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateTagType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateTagType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateFriendshipType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateFriendshipType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateLikeType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateLikeType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateDialogType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateDialogType schemas has been closed with error")
-	}
-
-	err = conn.Alter(context.Background(), &api.Operation{
-		Schema: CreateMessageType,
-	})
-	if err != nil {
-		log.Fatal("Alter CreateMessageType schemas has been closed with error")
-	}
-
-	if isDropFirst() {
-		txn := conn.NewTxn()
-		marshalR := []byte(InsertCountryRu)
-		marshalRB := []byte(InsertRB)
-		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalR})
-		_, err = txn.Mutate(context.Background(), &api.Mutation{SetJson: marshalRB, CommitNow: true})
-		if err != nil {
-			log.Fatal("Import new data has been closed with error")
-		}
-	}
-
 }

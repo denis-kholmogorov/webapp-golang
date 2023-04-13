@@ -18,6 +18,7 @@ type Account struct {
 	DType             []string     `json:"dgraph.type,omitempty"`
 	Posts             []Post       `json:"posts,omitempty"`
 	Friends           []Friendship `json:"friends,omitempty"`
+	Settings          Settings     `json:"settings,omitempty"`
 	Phone             string       `json:"phone,omitempty"`
 	Photo             string       `json:"photo,omitempty"`
 	PhotoId           string       `json:"photoId,omitempty"`

@@ -46,8 +46,8 @@ func (p *PersonMapper) RegistrationToAccount(regDto dto.RegistrationDto, hashPas
 		IsOnline:  false,
 		CreatedOn: &timeNow,
 		UpdatedOn: &timeNow,
-
-		DType: []string{"Account"},
+		Settings:  domain.NewSettings(),
+		DType:     []string{"Account"},
 	}
 
 }

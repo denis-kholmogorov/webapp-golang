@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"web/application/domain"
@@ -38,48 +37,30 @@ func (s *FriendService) FindAll(c *gin.Context) {
 	statusCode := dto.StatusCode{}
 	utils.BindQuery(c, &page)
 	utils.BindQuery(c, &statusCode)
-	response, err := s.friendRepository.FindAll(utils.GetCurrentUserId(c), statusCode, page)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, response)
-	}
+	response := s.friendRepository.FindAll(utils.GetCurrentUserId(c), statusCode, page)
+	c.JSON(http.StatusOK, response)
 }
 
 func (s *FriendService) Delete(c *gin.Context) {
 	friendId := c.Param("id")
-	err := s.friendRepository.Delete(utils.GetCurrentUserId(c), friendId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, "")
-	}
+	s.friendRepository.Delete(utils.GetCurrentUserId(c), friendId)
+	c.JSON(http.StatusOK, "")
+
 }
 
 func (s *FriendService) Count(c *gin.Context) {
-	response, err := s.friendRepository.Count(utils.GetCurrentUserId(c))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, response)
-	}
+	count := s.friendRepository.Count(utils.GetCurrentUserId(c))
+	c.JSON(http.StatusOK, count)
+
 }
 
 func (s *FriendService) Recommendations(c *gin.Context) {
-	response, err := s.friendRepository.Recommendations(utils.GetCurrentUserId(c))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, response)
-	}
+	response := s.friendRepository.Recommendations(utils.GetCurrentUserId(c))
+	c.JSON(http.StatusOK, response)
 }
 
 func (s *FriendService) Block(c *gin.Context) {
 	friendId := c.Param("id")
-	err := s.friendRepository.Block(utils.GetCurrentUserId(c), friendId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Row with %s not found", utils.GetCurrentUserId(c)))
-	} else {
-		c.JSON(http.StatusOK, "")
-	}
+	s.friendRepository.Block(utils.GetCurrentUserId(c), friendId)
+	c.Status(http.StatusOK)
 }
