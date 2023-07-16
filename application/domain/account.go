@@ -20,6 +20,8 @@ type Account struct {
 	Friends           []Friendship `json:"friends,omitempty"`
 	Settings          Settings     `json:"settings,omitempty"`
 	Phone             string       `json:"phone,omitempty"`
+	EmojiStatus       string       `json:"emojiStatus,omitempty"`
+	ProfileCover      string       `json:"profileCover,omitempty"`
 	Photo             string       `json:"photo,omitempty"`
 	PhotoId           string       `json:"photoId,omitempty"`
 	PhotoName         string       `json:"photoName,omitempty"`

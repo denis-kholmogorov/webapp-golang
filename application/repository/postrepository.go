@@ -48,7 +48,7 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 	}
 
 	if searchDto.WithFriends {
-		ids, err := friendRepo.getMyFriends(currentUserId)
+		ids, err := friendRepo.GetMyFriends(currentUserId)
 		if err != nil {
 			log.Printf("PostRepository:FindAll() Error add friends %s", err)
 			return nil, fmt.Errorf("PostRepository:FindAll() Error add friends %s", err)
@@ -83,27 +83,34 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 
 }
 
-func (r PostRepository) Create(post *domain.Post, authorId string) (*string, error) {
+func (r PostRepository) Create(post *domain.Post, authorId string, tagIds []string) (*domain.Post, error) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
 	timeNow := time.Now().UTC()
+	post.Uid = "_:post"
 	post.DType = []string{"Post"}
 	post.CreatedOn = &timeNow
 	post.UpdateOn = &timeNow
 	post.AuthorId = authorId
+	if post.PublishDate != nil {
+		post.Type = "QUEUED"
+	} else {
+		post.Type = "POSTED"
+	}
 	author := domain.Account{Uid: authorId, Posts: []domain.Post{*post}}
 	authorm, err := json.Marshal(author)
 	if err != nil {
 		log.Printf("PostRepository:save() Error marhalling post %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error marhalling post %s", err)
 	}
-	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: authorm, CommitNow: true})
+	mu, err := txn.Mutate(ctx, &api.Mutation{SetJson: authorm, CommitNow: true})
 	if err != nil {
 		log.Printf("PostRepository:save() Error mutate %s", err)
 		return nil, fmt.Errorf("PostRepository:Create() Error mutate %s", err)
 	}
-
-	return nil, nil
+	post.Id = mu.Uids["post"]
+	AddNodesToEdge(txn, ctx, post.Id, "tags", tagIds, true)
+	return post, nil
 }
 
 func (r PostRepository) Update(post *domain.Post, tagIds []string) error {
@@ -203,11 +210,29 @@ func (r PostRepository) Delete(postId string) error {
 	return Delete(txn, ctx, postId, true)
 }
 
-//var(func: type(Tag)) @filter(eq(name,"новый пост", "первый пост","Второй пост"))  {
-//	~tags @filter(eq(isDeleted, false)){
-//		C as uid
-//	}
-//}
+func (r PostRepository) UpdatePostQueue() {
+	ctx := context.Background()
+	variables := make(map[string]string)
+	variables["$type"] = "QUEUED"
+	variables["$currentTime"] = utils.GetCurrentTimeString()
+
+	mu := &api.Mutation{
+		SetNquads: []byte(updateStatusPost),
+	}
+
+	req := &api.Request{
+		Query:     getAllQueuePosts,
+		Mutations: []*api.Mutation{mu},
+		Vars:      variables,
+		CommitNow: true,
+	}
+	_, err := r.conn.NewTxn().Do(ctx, req)
+	if err != nil {
+		log.Printf("PostRepository: UpdatePostQueue() Error Unmarshal %s", err)
+	}
+}
+
+var updateStatusPost = `uid(A) <status> "POSTED" .`
 
 var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $author: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
 {
@@ -297,6 +322,14 @@ var(func: uid($parentId)) {
   }
  count(func: uid(A), orderdesc: timeChanged){
 	totalElement: count(uid)
+  }
+}
+`
+
+var getAllQueuePosts = `query getQueuePosts($currentTime: string, $type: string )
+{
+  posts(func: type(Post)) @filter(eq(type,$type) and lt(publishDate, $currentTime))  {
+    A as uid
   }
 }
 `

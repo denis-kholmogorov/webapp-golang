@@ -57,7 +57,7 @@ func (s StorageService) Upload(c *gin.Context) {
 		log.Println(err)
 		c.JSON(http.StatusBadRequest, fmt.Sprintf("GetCountry() Row with not found"))
 	} else {
-		c.JSON(http.StatusOK, dto.PhotoDto{PhotoPath: upload.URL, PhotoName: upload.DisplayName})
+		c.JSON(http.StatusOK, dto.PhotoDto{FileName: upload.URL})
 	}
 
 }

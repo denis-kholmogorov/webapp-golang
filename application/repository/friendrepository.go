@@ -82,7 +82,7 @@ func (r FriendRepository) ApproveFriend(currentUserId string, friendId string) {
 	}
 }
 
-func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCode, page dto.PageRequest) *dto.PageResponse[domain.Account] {
+func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCode, page dto.PageRequest) *dto.PageResponse[dto.FriendDto] {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -98,7 +98,7 @@ func (r FriendRepository) FindAll(currentUserId string, statusCode dto.StatusCod
 		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:FindAll() Error query getAllFriends %s", err)})
 	}
 
-	response := dto.PageResponse[domain.Account]{}
+	response := dto.PageResponse[dto.FriendDto]{}
 
 	err = json.Unmarshal(vars.Json, &response)
 	if err != nil {
@@ -130,7 +130,7 @@ func (r FriendRepository) Delete(currentUserId string, friendId string) {
 		CommitNow: true,
 	}
 
-	// Update email only if matching uid found.
+	// UpdateSettings email only if matching uid found.
 	_, err := r.conn.NewTxn().Do(ctx, req)
 	if err != nil {
 		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Delete() Error query deleteFriendship %s", err)})
@@ -165,7 +165,7 @@ func (r FriendRepository) Count(currentUserId string) int {
 	}
 }
 
-func (r FriendRepository) getMyFriends(currentUserId string) ([]string, error) {
+func (r FriendRepository) GetMyFriends(currentUserId string) ([]string, error) {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -262,7 +262,7 @@ func (r FriendRepository) Block(currentUserId string, friendId string) {
 			CommitNow: true,
 		}
 
-		// Update email only if matching uid found.
+		// UpdateSettings email only if matching uid found.
 		_, err = r.conn.NewTxn().Do(ctx, req)
 		if err != nil {
 			panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error mutate getFriendship %s", blockFriendship)})
@@ -298,7 +298,7 @@ func (r FriendRepository) createFriendship(ctx context.Context, txn *dgo.Txn, cu
 	}
 }
 
-var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
+var getAllFriends2 = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
 {
   var(func: uid($currentUserId)) @filter(eq(isDeleted, false))  {
     friends @filter(eq(status,$statusCode)) {
@@ -316,6 +316,24 @@ var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $f
 	birthDate:birthDate
 	isOnline:isOnline
 	photo: photo
+  }
+  count(func: uid(A)){
+		totalElement:count(uid)
+  }
+}
+`
+
+var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $first: int, $offset: int)
+{
+  var(func: uid($currentUserId)) @filter(eq(isDeleted, false))  {
+    friends @filter(eq(status,$statusCode)) {
+      friend {
+        A as uid
+      }
+    }
+  }
+  content(func: uid(A), orderdesc: time, first: $first, offset: $offset)  {
+    idFriend:uid
   }
   count(func: uid(A)){
 		totalElement:count(uid)

@@ -99,11 +99,11 @@ func (r AccountRepository) Update(account *domain.Account) string {
 	txn := r.conn.NewTxn()
 	accountm, err := json.Marshal(account)
 	if err != nil {
-		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:Update() Error marhalling account %s", err)})
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("AccountRepository:UpdateSettings() Error marhalling account %s", err)})
 	}
 	_, err = txn.Mutate(ctx, &api.Mutation{SetJson: accountm, CommitNow: true})
 	if err != nil {
-		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:Update() Error mutate %s", err)})
+		panic(errorhandler.DbError{Message: fmt.Sprintf("AccountRepository:UpdateSettings() Error mutate %s", err)})
 	}
 	return account.Id
 }
@@ -208,6 +208,8 @@ var findById = `query AccountById($id: string)
 		country
 		birthDate
 		lastOnlineTime
+        emojiStatus
+        profileCover
 	}
 }`
 

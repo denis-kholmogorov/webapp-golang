@@ -15,3 +15,11 @@ func NewMessageSocketDto(data *domain.Message) *SocketDto[domain.Message] {
 	s.Type = "MESSAGE"
 	return &s
 }
+
+func NewNotifySocketDto(data *domain.Notification) *SocketDto[domain.Notification] {
+	s := SocketDto[domain.Notification]{}
+	s.Data = data
+	s.AccountId = data.AuthorId
+	s.Type = "NOTIFICATION"
+	return &s
+}

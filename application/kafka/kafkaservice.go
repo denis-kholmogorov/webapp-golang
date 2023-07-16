@@ -9,11 +9,13 @@ const (
 )
 
 func NewWriterMessage(topic string) *kafka.Writer {
-	return &kafka.Writer{
-		Addr:         kafka.TCP(BrokerAddress),
-		Topic:        topic,
-		RequiredAcks: kafka.RequireAll,
+	writer := kafka.Writer{
+		Addr:                   kafka.TCP(BrokerAddress),
+		Topic:                  topic,
+		RequiredAcks:           kafka.RequireAll,
+		AllowAutoTopicCreation: true,
 	}
+	return &writer
 }
 
 func NewReaderMessage(topic string, group string) *kafka.Reader {

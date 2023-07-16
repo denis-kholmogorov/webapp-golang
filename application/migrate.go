@@ -97,6 +97,13 @@ func StartDbMigrate(conn *dgo.Dgraph) {
 		log.Fatal("Alter CreateSettingsType schemas has been closed with error")
 	}
 
+	err = conn.Alter(context.Background(), &api.Operation{
+		Schema: CreateNotificationType,
+	})
+	if err != nil {
+		log.Fatal("Alter CreateNotificationType schemas has been closed with error")
+	}
+
 	if isDropFirst() {
 		txn := conn.NewTxn()
 		marshalR := []byte(InsertCountryRu)
@@ -127,9 +134,12 @@ const CreateAccountType = `type Account {
 	country
 	posts
 	friends
+	notifications
 	statusCode
 	messagePermission
 	createdOn
+    emojiStatus
+    profileCover
 	updatedOn
 	birthDate
 	lastOnlineTime
@@ -146,6 +156,8 @@ isBlocked: bool .
 isOnline: bool .
 phone: string .
 photo: string .
+emojiStatus: string .
+profileCover: string .
 photoId: string .
 photoName: string .
 about: string .
@@ -159,6 +171,7 @@ birthDate: datetime @index(day).
 lastOnlineTime: datetime .
 posts: [uid] @reverse .
 friends: [uid] @reverse .
+notifications: [uid] @reverse .
 settings: uid .
 `
 
@@ -241,7 +254,7 @@ previousStatus: string .
 const CreateTagType = `type Tag {
     name
 }
-name: string @index(hash) .
+name: string @index(trigram,hash) .
 `
 
 const CreateLikeType = `type Like {
@@ -321,6 +334,20 @@ enableFriendRequest: bool .
 enableFriendBirthday: bool .
 enableSendEmailMessage: bool .
 enableIsDeleted: bool .`
+
+const CreateNotificationType = `type Notification {
+	authorId
+	recipientId
+	content
+	notificationType
+	sentTime
+}
+
+authorId: string .
+recipientId: string .
+content: string .
+notificationType: string .
+sentTime: datetime .`
 
 const InsertCountryRu = `{
 "countryTitle":"Россия",

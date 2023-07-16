@@ -15,7 +15,7 @@ type Post struct {
 	ImagePath     string     `json:"imagePath"`
 	IsDeleted     bool       `json:"isDeleted"`
 	DType         []string   `json:"dgraph.type,omitempty"`
-	Tags          []Tag      `json:"tags,omitempty"`
+	Tags          []Tag      `json:"tags,omitempty"` //TODO проверить на null бек
 	Likes         []Like     `json:"likes,omitempty"`
 	Comments      []Comment  `json:"comments,omitempty"`
 	CreatedOn     *time.Time `json:"time" time_format:"2006-01-02 15:04:05.99Z07:00"`

@@ -33,6 +33,7 @@ func NewWebsocketService() *WebsocketService {
 			kafkaWriter: kafkaservice.NewWriterMessage("receiveMessage"),
 		}
 		go websocketService.SendMessage(context.Background())
+		go websocketService.SendNotification(context.Background())
 		isInitWebsocketService = true
 	}
 	mt.Unlock()
@@ -89,11 +90,21 @@ func (s *WebsocketService) ReceiveMessage(message *domain.Message) error {
 }
 
 func (s *WebsocketService) SendSocketMessage(savedMessage *domain.Message) error {
-
 	if s.connections[savedMessage.RecipientId] != nil {
 		err := s.connections[savedMessage.RecipientId].WriteJSON(dto.NewMessageSocketDto(savedMessage))
 		if err != nil {
 			log.Printf("ERROR: Websocket send message to account %s %v:", savedMessage.RecipientId, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *WebsocketService) SendSocketNotification(notify *domain.Notification) error {
+	if s.connections[notify.RecipientId] != nil {
+		err := s.connections[notify.RecipientId].WriteJSON(dto.NewNotifySocketDto(notify))
+		if err != nil {
+			log.Printf("ERROR: Websocket send message to account %s %v:", notify.RecipientId, err)
 			return err
 		}
 	}
@@ -119,6 +130,29 @@ func (s *WebsocketService) SendMessage(ctx context.Context) {
 		if err != nil {
 			log.Print("ERROR: Kafka could not send message ", err)
 			break
+		}
+	}
+}
+
+func (s *WebsocketService) SendNotification(ctx context.Context) {
+	r := kafkaservice.NewReaderMessage("sendNotification", "sendNotification")
+	for {
+		msg, err := r.ReadMessage(ctx)
+		if err != nil {
+			log.Printf("ERROR: Kafka could not read notification " + err.Error())
+			continue
+		}
+
+		message := domain.Notification{}
+		err = json.Unmarshal(msg.Value, &message)
+		if err != nil {
+			log.Println("Kafka can't read message")
+			continue
+		}
+		err = s.SendSocketNotification(&message)
+		if err != nil {
+			log.Print("ERROR: Kafka could not send message ", err)
+			continue
 		}
 	}
 }

@@ -21,7 +21,7 @@ import (
 type AuthService struct {
 	accountRepository  *repository.AccountRepository
 	captchaRepository  *repository.CaptchaRepository
-	settingsRepository *repository.SettingsRepository
+	settingsRepository *repository.NotificationRepository
 	mapper             *mapper.PersonMapper
 }
 

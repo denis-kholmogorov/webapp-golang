@@ -34,6 +34,7 @@ func main() {
 	server.Use(security.NewSecurity().AuthMiddleware)
 	server.Use(errorhandler.ErrorHandler())
 
+	resource.TagResource(server, service.NewTagService())
 	resource.GeoResource(server, service.NewGeoService())
 	resource.AuthResource(server, service.NewAuthService())
 	resource.PostResource(server, service.NewPostService())
@@ -42,7 +43,7 @@ func main() {
 	resource.StorageResource(server, service.NewStorageService())
 	resource.DialogResource(server, service.NewDialogService())
 	resource.WebsocketResource(server, service.NewWebsocketService())
-	resource.SettingsResource(server, service.NewSettingsService())
+	resource.NotificationResource(server, service.NewSettingsService())
 
 	err := server.Run()
 	if err != nil {

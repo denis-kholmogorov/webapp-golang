@@ -1,28 +1,47 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/robfig/cron"
+	"github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
+	"sync"
 	"web/application/domain"
 	"web/application/dto"
+	"web/application/errorhandler"
+	kafkaservice "web/application/kafka"
 	"web/application/repository"
 	"web/application/utils"
 )
+
+var postService PostService
+var isInitPostService bool
 
 type PostService struct {
 	postRepository *repository.PostRepository
 	tagRepository  *repository.TagRepository
 	likeRepository *repository.LikeRepository
-	post           domain.Post
+	kafkaWriter    *kafka.Writer
 }
 
 func NewPostService() *PostService {
-	return &PostService{
+	mt := sync.Mutex{}
+	mt.Lock()
+	postService = PostService{
 		postRepository: repository.GetPostRepository(),
 		tagRepository:  repository.GetTagRepository(),
 		likeRepository: repository.GetLikeRepository(),
+		kafkaWriter:    kafkaservice.NewWriterMessage("createNotifications"),
 	}
+	isInitPostService = true
+	go createCronPostPublish()
+	mt.Unlock()
+	return &postService
 }
 
 func (s *PostService) GetAll(c *gin.Context) {
@@ -44,18 +63,19 @@ func (s *PostService) Create(c *gin.Context) {
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
 	authorId := utils.GetCurrentUserId(c)
-	err := s.tagRepository.Create(&post)
+	tagIds, err := s.tagRepository.Update(&post)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	_, err = s.postRepository.Create(&post, authorId)
+	newPost, err := s.postRepository.Create(&post, authorId, tagIds)
+	s.SendNotification(&domain.EventNotification{InitiatorId: post.AuthorId, Content: utils.TrimStr(newPost.Title), NotificationType: "POST"})
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 	} else {
-		c.JSON(http.StatusCreated, "&id")
+		c.Status(http.StatusCreated)
 	}
 }
 
@@ -63,13 +83,13 @@ func (s *PostService) Update(c *gin.Context) {
 	post := domain.Post{}
 	utils.BindJson(c, &post)
 	log.Printf("Create new post %v", post)
-	ids, err := s.tagRepository.Update(&post)
+	tagIds, err := s.tagRepository.Update(&post)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	err = s.postRepository.Update(&post, ids)
+	err = s.postRepository.Update(&post, tagIds)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -121,7 +141,7 @@ func (s *PostService) CreateComment(c *gin.Context) {
 func (s *PostService) UpdateComment(c *gin.Context) {
 	comment := domain.Comment{}
 	utils.BindJson(c, &comment)
-	log.Printf("Update comment %v", comment.Id)
+	log.Printf("UpdateSettings comment %v", comment.Id)
 	err := s.postRepository.UpdateComment(comment)
 	if err != nil {
 		log.Println(err)
@@ -203,4 +223,32 @@ func (s *PostService) DeleteCommentLike(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, resp)
 	}
+}
+
+func (s *PostService) SendNotification(message *domain.EventNotification) {
+	marshal, err := json.Marshal(message)
+	if err != nil {
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("PostService:SendNotification()  Kafka could not send message  %s", err)})
+	}
+	err = s.kafkaWriter.WriteMessages(context.Background(), kafka.Message{
+		Key:   []byte(uuid.NewString()),
+		Value: marshal,
+	})
+	if err != nil {
+		panic(errorhandler.ErrorResponse{Message: fmt.Sprintf("PostService:SendNotification()  Kafka could not send message  %s", err)})
+	}
+}
+
+func (s *PostService) checkPublishPost() {
+	s.postRepository.UpdatePostQueue()
+}
+
+func createCronPostPublish() {
+	c := cron.New()
+	err := c.AddFunc("*/15 * * * *", postService.checkPublishPost)
+	if err != nil {
+		fmt.Println("3 Time CRON")
+	}
+	c.Run()
+	fmt.Println("4 Time CRON")
 }

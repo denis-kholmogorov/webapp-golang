@@ -20,10 +20,6 @@ import (
 var dialogService DialogService
 var isInitDialogService bool
 
-const (
-	Broker1Address = "localhost:9092"
-)
-
 type DialogService struct {
 	dialogRepository *repository.DialogRepository
 	kafkaWriter      *kafka.Writer

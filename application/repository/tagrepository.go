@@ -8,7 +8,11 @@ import (
 	"github.com/dgraph-io/dgo/v210/protos/api"
 	"log"
 	"web/application/domain"
+	"web/application/dto"
+	"web/application/errorhandler"
 )
+
+const regexTagName = "/%s.*/"
 
 var tagRepo *TagRepository
 var isInitializedtagRepo bool
@@ -24,6 +28,19 @@ func GetTagRepository() *TagRepository {
 		isInitializedtagRepo = true
 	}
 	return tagRepo
+}
+
+func (r TagRepository) FindAll(searchDto dto.TagSearchDto) *[]domain.Tag {
+	variables := make(map[string]string)
+	variables["$search"] = fmt.Sprintf(regexTagName, searchDto.Name)
+	txn := r.conn.NewReadOnlyTxn()
+	vars, err := txn.QueryWithVars(context.Background(), findAllTag, variables)
+	if err != nil {
+		panic(errorhandler.DbError{Message: fmt.Sprintf("TagRepository:FindAll() Error query %s", err)})
+	}
+	response := domain.TagList{}
+	err = json.Unmarshal(vars.Json, &response)
+	return &response.List
 }
 
 func (r TagRepository) Create(post *domain.Post) error {
@@ -140,3 +157,14 @@ var getTagByName = `query Tag($name: string)
   }
 }
 `
+var findAllTag = `query findAllTag($search: string)
+{
+	var(func: type(Tag)) @filter(regexp(name, $search)){
+	    tags as uid
+        countTag as count(~posts)
+  }
+	tagList(func: uid(tags), orderdesc: val(countTag)){
+	     id: uid
+         name
+  }
+}`
