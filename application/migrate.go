@@ -184,6 +184,7 @@ const CreatePostType = `type Post {
     isDeleted
     publishDate
     myLike
+	myReaction
     commentsCount
 	likeAmount
 	time
@@ -197,6 +198,7 @@ title: string @index(fulltext) .
 isDeleted: bool .
 publishDate: datetime .
 myLike: bool .
+myReaction: string .
 commentsCount: int .
 likeAmount: int .
 time: datetime .
@@ -216,6 +218,7 @@ const CreateCommentType = `type Comment {
 	commentType
 	commentsCount
 	myLike
+    myReaction
 	likeAmount
 	timeChanged
 	time
@@ -231,6 +234,7 @@ postId: string @index(hash) .
 commentType: string @index(hash) .
 commentsCount: int .
 myLike: bool .
+myReaction: string .
 likeAmount: int .
 likes: [uid] .
 timeChanged: datetime .
@@ -259,8 +263,10 @@ name: string @index(trigram,hash) .
 
 const CreateLikeType = `type Like {
     authorId
+    reactionType
 }
 authorId: string @index(hash) .
+reactionType: string .
 `
 
 const CreateCaptchaType = `type Captcha {

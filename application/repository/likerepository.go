@@ -8,6 +8,7 @@ import (
 	"github.com/dgraph-io/dgo/v210/protos/api"
 	"log"
 	"web/application/domain"
+	"web/application/errorhandler"
 )
 
 var likeRepo *LikeRepository
@@ -26,37 +27,38 @@ func GetLikeRepository() *LikeRepository {
 	return likeRepo
 }
 
-func (r LikeRepository) CreateLike(parentId string, authorId string) (bool, error) {
+func (r LikeRepository) CreateLike(parentId string, like *domain.Like) {
 	ctx := context.Background()
 	txn := r.conn.NewTxn()
-	exist, err := isLikeExist(ctx, txn, parentId, authorId)
-	if err != nil {
-		txn.Discard(ctx)
-		return false, err
-	}
-	if exist {
-		txn.Discard(ctx)
-		return false, fmt.Errorf("like has been installed")
+	likes := LikeByParentIdAndAuthorId(ctx, txn, parentId, like.AuthorId)
+
+	if len(likes.List) > 0 {
+		if likes.List[0].ReactionType != like.ReactionType {
+			updateLikeReaction(ctx, txn, likes.List[0].Uid, like)
+		}
+		return
 	}
 
-	likem, err := json.Marshal(domain.Like{Uid: "_:like", DType: []string{"Like"}, AuthorId: authorId})
+	like.Uid = "_:like"
+	like.DType = []string{"Like"}
+	likem, err := json.Marshal(like)
 	if err != nil {
 		txn.Discard(ctx)
 		log.Printf("LikeRepository:save() Error marhalling post %s", err)
-		return false, fmt.Errorf("LikeRepository:Create() Error marhalling post %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("LikeRepository:CreateLike() Error marshal like %s", err)})
 	}
 	mutate, err := txn.Mutate(ctx, &api.Mutation{SetJson: likem})
 	if err != nil {
 		txn.Discard(ctx)
 		log.Printf("LikeRepository:save() Error mutate %s", err)
-		return false, fmt.Errorf("LikeRepository:Create() Error mutate %s", err)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("likeRepository:CreateLike() Error update parent %s", err)})
 	}
 	likeId := mutate.GetUids()["like"]
 	err = AddEdge(txn, ctx, parentId, "likes", likeId, true)
 	if err != nil {
-		return false, err
+		txn.Discard(ctx)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("likeRepository:CreateLike() Error update parent %s", err)})
 	}
-	return exist, err
 }
 
 func (r LikeRepository) DeleteLike(parentId string, authorId string) (bool, error) {
@@ -85,6 +87,14 @@ func (r LikeRepository) DeleteLike(parentId string, authorId string) (bool, erro
 	return true, err
 }
 
+func updateLikeReaction(ctx context.Context, txn *dgo.Txn, idLike string, like *domain.Like) {
+	err := UpdateNodeFields(txn, ctx, idLike, map[string]string{"reactionType": like.ReactionType}, true)
+	if err != nil {
+		txn.Discard(ctx)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("LikeRepository:LikeByParentIdAndAuthorId() Error get likes %s", err)})
+	}
+}
+
 func getLikeByAuthorAndPostId(ctx context.Context, txn *dgo.Txn, parentId string, authorId string) (*domain.Like, error) {
 	variables := make(map[string]string)
 	variables["$parentId"] = parentId
@@ -104,24 +114,28 @@ func getLikeByAuthorAndPostId(ctx context.Context, txn *dgo.Txn, parentId string
 	return &like.List[0], err
 }
 
-func isLikeExist(ctx context.Context, txn *dgo.Txn, parentId string, authorId string) (bool, error) {
+func LikeByParentIdAndAuthorId(ctx context.Context, txn *dgo.Txn, parentId string, authorId string) *domain.LikeList {
 	variables := make(map[string]string)
 	variables["$parentId"] = parentId
 	variables["$authorId"] = authorId
 	vars, err := txn.QueryWithVars(ctx, existLike, variables)
 	if err != nil {
-		return false, err
+		txn.Discard(ctx)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("LikeRepository:LikeByParentIdAndAuthorId() Error get likes %s", err)})
 	}
-	exist := domain.LikeExist{}
-	err = json.Unmarshal(vars.Json, &exist)
-
-	return exist.Exists[0].Count > 0, err
+	likes := domain.LikeList{}
+	err = json.Unmarshal(vars.Json, &likes)
+	if err != nil {
+		txn.Discard(ctx)
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("LikeRepository:LikeByParentIdAndAuthorId() Error Unmarshal %s", err)})
+	}
+	return &likes
 }
 
 var existLike = `query Exists($parentId: string, $authorId: string)
 {
 exists(func: uid($parentId)){
-	count:count(likes @filter(eq(authorId,$authorId)))
+	likes @filter(eq(authorId,$authorId))
 }
 }
 `
@@ -138,6 +152,7 @@ var(func: uid($parentId)){
     likeList(func: uid(A)){
     uid
     authorId
+    reactionType
   }
 }
 `

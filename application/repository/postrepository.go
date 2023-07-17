@@ -246,18 +246,21 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $aut
     	}
 	}
 
-    content(func: uid(A,B), first: $first, offset: $offset, orderdesc: time)  {
+    content(func: uid(A,B), first: $first, offset: $offset, orderdesc: time) @normalize  {
 	id:uid
-	postText
-	authorId
-	title
-	time 
-	timeChanged
-	type
-	isDeleted
-	isBlocked
-	imagePath
+	postText: postText
+	authorId: authorId
+	title: title
+	time: time 
+	timeChanged: timeChanged
+	type: type
+	isDeleted: isDeleted
+	isBlocked: isBlocked
+	imagePath: imagePath
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
+    myReaction: likes @filter(eq(authorId,$currentUserId)){
+		myReaction:reactionType
+    }
 	likeAmount: count(likes)
 	commentsCount: count(comments @filter(eq(isDeleted, false)))
 	tags {
@@ -276,18 +279,21 @@ var(func: uid(%s)) @filter(eq(isDeleted, false))  {
 	A as uid
   }
 }
-  content(func: uid(A), orderdesc: time, first: $first, offset: $offset)  {
+  content(func: uid(A), orderdesc: time, first: $first, offset: $offset) @normalize  {
     id:uid
-	postText
-	authorId
-	title
-	time
-	timeChanged
-	type
-	isDeleted
-	isBlocked
-	imagePath
+	postText: postText
+	authorId: authorId
+	title: title
+	time: time
+	timeChanged: timeChanged
+	type: type
+	isDeleted: isDeleted
+	isBlocked: isBlocked
+	imagePath: imagePath
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
+    myReaction: likes @filter(eq(authorId,$currentUserId)){
+		myReaction:reactionType
+    }
 	likeAmount: count(likes)
 	commentsCount: count(comments @filter(eq(isDeleted, false))) 
 	tags {

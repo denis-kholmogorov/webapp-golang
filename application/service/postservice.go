@@ -179,14 +179,13 @@ func (s *PostService) GetAllSubComment(c *gin.Context) {
 
 func (s *PostService) CreateLike(c *gin.Context) {
 	parentId := c.Param("postId")
+	like := domain.Like{}
+	utils.BindJson(c, &like)
+	like.AuthorId = utils.GetCurrentUserId(c)
 	log.Printf("Create like on parentId %s", parentId)
-	resp, err := s.likeRepository.CreateLike(parentId, utils.GetCurrentUserId(c))
-	if err != nil {
-		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
-	} else {
-		c.JSON(http.StatusOK, resp)
-	}
+	s.likeRepository.CreateLike(parentId, &like)
+	c.JSON(http.StatusOK, "")
+
 }
 
 func (s *PostService) DeleteLike(c *gin.Context) {
@@ -203,14 +202,11 @@ func (s *PostService) DeleteLike(c *gin.Context) {
 
 func (s *PostService) CreateCommentLike(c *gin.Context) {
 	parentId := c.Param("commentId")
+	like := &domain.Like{}
+	like.AuthorId = utils.GetCurrentUserId(c)
 	log.Printf("Create like on parentId %s", parentId)
-	resp, err := s.likeRepository.CreateLike(parentId, utils.GetCurrentUserId(c))
-	if err != nil {
-		log.Println(err)
-		c.AbortWithError(http.StatusBadRequest, err)
-	} else {
-		c.JSON(http.StatusOK, resp)
-	}
+	s.likeRepository.CreateLike(parentId, like)
+	c.JSON(http.StatusOK, "")
 }
 
 func (s *PostService) DeleteCommentLike(c *gin.Context) {

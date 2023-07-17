@@ -11,7 +11,8 @@ type Post struct {
 	PostText      string     `json:"postText"`
 	CommentsCount int        `json:"commentsCount"`
 	MyLike        int        `json:"myLike,omitempty"`
-	LikeAmount    int        `json:"likeAmount,omitempty"`
+	MyReaction    string     `json:"myReaction,omitempty"`
+	LikeAmount    int        `json:"likeAmount"`
 	ImagePath     string     `json:"imagePath"`
 	IsDeleted     bool       `json:"isDeleted"`
 	DType         []string   `json:"dgraph.type,omitempty"`
