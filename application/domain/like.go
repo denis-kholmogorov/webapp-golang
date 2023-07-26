@@ -9,5 +9,10 @@ type Like struct {
 }
 
 type LikeList struct {
-	List []Like `json:"likeList,omitempty"`
+	List []Like `json:"likes,omitempty"`
+}
+
+type LikeCount struct {
+	ReactionType string `json:"reactionType"`
+	Count        int    `json:"count"`
 }

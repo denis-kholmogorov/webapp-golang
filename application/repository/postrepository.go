@@ -72,7 +72,9 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 		return nil, fmt.Errorf("PostRepository:FindAll() Error query %s", err)
 	}
 	response := dto.PageResponse[domain.Post]{}
-	err = json.Unmarshal(vars.Json, &response)
+	replacer := strings.NewReplacer("@groupby", "reactions", "\"myLike\":0", "\"myLike\":false", "\"myLike\":1", "\"myLike\":true")
+	jsonReplace := []byte(replacer.Replace(string(vars.Json)))
+	err = json.Unmarshal(jsonReplace, &response)
 	if err != nil {
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
@@ -261,6 +263,9 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $aut
     myReaction: likes @filter(eq(authorId,$currentUserId)){
 		myReaction:reactionType
     }
+    reactions: likes @groupby(reactionType){
+        count(uid)
+    }
 	likeAmount: count(likes)
 	commentsCount: count(comments @filter(eq(isDeleted, false)))
 	tags {
@@ -293,6 +298,9 @@ var(func: uid(%s)) @filter(eq(isDeleted, false))  {
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
     myReaction: likes @filter(eq(authorId,$currentUserId)){
 		myReaction:reactionType
+    }
+    likes @groupby(reactionType){
+       count(uid)
     }
 	likeAmount: count(likes)
 	commentsCount: count(comments @filter(eq(isDeleted, false))) 

@@ -99,14 +99,14 @@ func getLikeByAuthorAndPostId(ctx context.Context, txn *dgo.Txn, parentId string
 	variables := make(map[string]string)
 	variables["$parentId"] = parentId
 	variables["$authorId"] = authorId
-	vars, err := txn.QueryWithVars(ctx, getLikeByPostIdAndAuthorId, variables)
+	vars, err := txn.QueryWithVars(ctx, existLike, variables)
 	if err != nil {
-		return nil, err
+		panic(errorhandler.DbError{Message: fmt.Sprintf("LikeRepository:getLikeByAuthorAndPostId() Error get likes %s", err)})
 	}
 	like := domain.LikeList{}
 	err = json.Unmarshal(vars.Json, &like)
 	if err != nil {
-		return nil, err
+		panic(errorhandler.MarshalError{Message: fmt.Sprintf("LikeRepository:getLikeByAuthorAndPostId() Error get likes %s", err)})
 	}
 	if len(like.List) == 0 {
 		return nil, fmt.Errorf("like of authorId=%s not found for delete parentId=%s", authorId, parentId)
@@ -134,8 +134,11 @@ func LikeByParentIdAndAuthorId(ctx context.Context, txn *dgo.Txn, parentId strin
 
 var existLike = `query Exists($parentId: string, $authorId: string)
 {
-exists(func: uid($parentId)){
-	likes @filter(eq(authorId,$authorId))
+likes(func: uid($parentId)) @normalize{
+	likes: likes @filter(eq(authorId,$authorId)){
+		uid:uid
+		reactionType: reactionType
+	}
 }
 }
 `
