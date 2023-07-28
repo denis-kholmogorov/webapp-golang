@@ -19,7 +19,11 @@ import (
 
 func init() {
 	// loads values from .env into the system
-	if err := godotenv.Load("application/.env"); err != nil {
+	err := godotenv.Load(".env")
+	if err != nil {
+		err = godotenv.Load("application/.env")
+	}
+	if err != nil {
 		log.Println("No .env file found")
 	}
 
@@ -81,6 +85,20 @@ func isDropFirst() bool {
 		}
 		isDrop = ok
 	}
+	log.Printf("Drop first enable %s", isDrop)
+	return isDrop
+}
 
+func isMigrate() bool {
+	ok, exists := os.LookupEnv("ENABLE_MIGRATE")
+	isDrop := false
+	if exists {
+		ok, err := strconv.ParseBool(ok)
+		if err != nil {
+			log.Fatal(err)
+		}
+		isDrop = ok
+	}
+	log.Printf("Migrate enable %s", isDrop)
 	return isDrop
 }

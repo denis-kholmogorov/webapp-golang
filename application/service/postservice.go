@@ -69,8 +69,9 @@ func (s *PostService) Create(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	newPost, err := s.postRepository.Create(&post, authorId, tagIds)
-	s.SendNotification(&domain.EventNotification{InitiatorId: post.AuthorId, Content: utils.TrimStr(newPost.Title), NotificationType: "POST"})
+	//newPost, err := s.postRepository.Create(&post, authorId, tagIds)
+	_, err = s.postRepository.Create(&post, authorId, tagIds)
+	//s.SendNotification(&domain.EventNotification{InitiatorId: post.AuthorId, Content: utils.TrimStr(newPost.Title), NotificationType: "POST"})
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)

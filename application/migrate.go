@@ -9,15 +9,20 @@ import (
 
 func StartDbMigrate(conn *dgo.Dgraph) {
 
-	err := conn.Alter(context.Background(), &api.Operation{
-		DropAll: isDropFirst(),
-	})
+	if isDropFirst() {
+		err := conn.Alter(context.Background(), &api.Operation{
+			DropAll: true,
+		})
+		if err != nil {
+			log.Fatal("Drop first schemas has been closed with error", err)
+		}
+	}
 
-	err = conn.Alter(context.Background(), &api.Operation{
+	err := conn.Alter(context.Background(), &api.Operation{
 		Schema: CreateAccountType,
 	})
 	if err != nil {
-		log.Fatal("Alter CreateAccountType schemas has been closed with error")
+		log.Fatal("Alter CreateAccountType schemas has been closed with error", err)
 	}
 
 	err = conn.Alter(context.Background(), &api.Operation{
@@ -104,7 +109,7 @@ func StartDbMigrate(conn *dgo.Dgraph) {
 		log.Fatal("Alter CreateNotificationType schemas has been closed with error")
 	}
 
-	if isDropFirst() {
+	if isMigrate() {
 		txn := conn.NewTxn()
 		marshalR := []byte(InsertCountryRu)
 		marshalRB := []byte(InsertRB)
