@@ -79,10 +79,24 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
 	}
-
+	updateLikes(response.Content)
 	response.SetPage(searchDto.Size, searchDto.Page)
 	return &response, nil
 
+}
+
+func updateLikes(posts []domain.Post) {
+
+	for i, _ := range posts {
+		if len(posts[i].RowReactions) > 0 {
+			posts[i].Reactions = posts[i].RowReactions[0].Reactions
+			posts[i].RowReactions = nil
+		}
+		if len(posts[i].RowMyReaction) > 0 {
+			posts[i].MyReaction = posts[i].RowMyReaction[0].MyReaction
+			posts[i].RowMyReaction = nil
+		}
+	}
 }
 
 func (r PostRepository) Create(post *domain.Post, authorId string, tagIds []string) (*domain.Post, error) {
@@ -260,15 +274,16 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $aut
 	isBlocked: isBlocked
 	imagePath: imagePath
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
-    myReaction: likes @filter(eq(authorId,$currentUserId)){
+    rowMyReaction: likes @filter(eq(authorId,$currentUserId)){
 		myReaction:reactionType
     }
-    reactions: likes @groupby(reactionType){
+    rowReactions: likes @groupby(reactionType){
         count(uid)
     }
 	likeAmount: count(likes)
 	commentsCount: count(comments @filter(eq(isDeleted, false)))
-	tags {
+	tags: tags {
+        uid
 		name
 	}
     }
@@ -284,7 +299,7 @@ var(func: uid(%s)) @filter(eq(isDeleted, false))  {
 	A as uid
   }
 }
-  content(func: uid(A), orderdesc: time, first: $first, offset: $offset) @normalize  {
+  content(func: uid(A), orderdesc: time, first: $first, offset: $offset) {
     id:uid
 	postText: postText
 	authorId: authorId
@@ -296,17 +311,18 @@ var(func: uid(%s)) @filter(eq(isDeleted, false))  {
 	isBlocked: isBlocked
 	imagePath: imagePath
 	myLike: count(likes @filter(eq(authorId,$currentUserId)))
-    myReaction: likes @filter(eq(authorId,$currentUserId)){
+    rowMyReaction: likes @filter(eq(authorId,$currentUserId)){
 		myReaction:reactionType
     }
-    likes @groupby(reactionType){
+    rowReactions: likes @groupby(reactionType){
        count(uid)
     }
+    tags {
+	  id: uid
+      name
+    }
 	likeAmount: count(likes)
-	commentsCount: count(comments @filter(eq(isDeleted, false))) 
-	tags {
-	name
-}
+	commentsCount: count(comments @filter(eq(isDeleted, false)))
   }
   count(func: uid(A)){
 		totalElement:count(uid)

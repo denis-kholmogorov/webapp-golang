@@ -3,25 +3,27 @@ package domain
 import "time"
 
 type Post struct {
-	Id            string      `json:"id,omitempty"`
-	Uid           string      `json:"uid,omitempty"`
-	Title         string      `json:"title"`
-	Type          string      `json:"type,omitempty"`
-	AuthorId      string      `json:"authorId,omitempty"`
-	PostText      string      `json:"postText"`
-	CommentsCount int         `json:"commentsCount"`
-	MyLike        bool        `json:"myLike"`
-	MyReaction    string      `json:"myReaction"`
-	LikeAmount    int         `json:"likeAmount"`
-	ImagePath     string      `json:"imagePath"`
-	Reactions     []LikeCount `json:"reactions,omitempty"`
-	IsDeleted     bool        `json:"isDeleted"`
-	DType         []string    `json:"dgraph.type,omitempty"`
-	Tags          []Tag       `json:"tags"`
-	Comments      []Comment   `json:"comments,omitempty"`
-	CreatedOn     *time.Time  `json:"time" time_format:"2006-01-02 15:04:05.99Z07:00"`
-	UpdateOn      *time.Time  `json:"timeChanged" time_format:"2006-01-02 15:04:05.99Z07:00"`
-	PublishDate   *time.Time  `json:"publishDate,omitempty" time_format:"2006-01-02 15:04:05.99Z07:00"`
+	Id            string          `json:"id,omitempty"`
+	Uid           string          `json:"uid,omitempty"`
+	Title         string          `json:"title"`
+	Type          string          `json:"type,omitempty"`
+	AuthorId      string          `json:"authorId,omitempty"`
+	PostText      string          `json:"postText"`
+	CommentsCount int             `json:"commentsCount"`
+	MyLike        bool            `json:"myLike"`
+	MyReaction    string          `json:"myReaction"`
+	RowMyReaction []RowMyReaction `json:"rowMyReaction,omitempty"`
+	LikeAmount    int             `json:"likeAmount"`
+	ImagePath     string          `json:"imagePath"`
+	RowReactions  []RowReactions  `json:"rowReactions,omitempty"`
+	Reactions     []LikeCount     `json:"reactions,omitempty"`
+	IsDeleted     bool            `json:"isDeleted"`
+	DType         []string        `json:"dgraph.type,omitempty"`
+	Tags          []Tag           `json:"tags"`
+	Comments      []Comment       `json:"comments,omitempty"`
+	CreatedOn     *time.Time      `json:"time" time_format:"2006-01-02 15:04:05.99Z07:00"`
+	UpdateOn      *time.Time      `json:"timeChanged" time_format:"2006-01-02 15:04:05.99Z07:00"`
+	PublishDate   *time.Time      `json:"publishDate,omitempty" time_format:"2006-01-02 15:04:05.99Z07:00"`
 }
 
 type PostList struct {

@@ -16,3 +16,10 @@ type LikeCount struct {
 	ReactionType string `json:"reactionType"`
 	Count        int    `json:"count"`
 }
+
+type RowMyReaction struct {
+	MyReaction string `json:"myReaction"`
+}
+type RowReactions struct {
+	Reactions []LikeCount `json:"reactions"`
+}
