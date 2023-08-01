@@ -213,7 +213,7 @@ var findById = `query AccountById($id: string)
 	}
 }`
 
-var findByParams = `query searchAuthor($firstName: string, $lastName: string, $currentId: string,%s $first: int, $offset: int)
+var findByParams = `query searchAuthor($firstName: string, $lastName: string, $currentId: string%s, $first: int, $offset: int)
 {
 	var(func: type(Account)) @filter(not uid($currentId) and regexp(firstName, $firstName) and regexp(lastName, $lastName)%s ){
 	A as uid

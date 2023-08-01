@@ -18,6 +18,8 @@ import (
 var postRepo *PostRepository
 var isInitializedpostRepo bool
 
+const defaultDateFrom = "1970-01-01T01:01:01Z"
+
 type PostRepository struct {
 	conn *dgo.Dgraph
 }
@@ -40,8 +42,13 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 	variables["$currentUserId"] = currentUserId
 	variables["$first"] = strconv.Itoa(searchDto.Size)
 	variables["$offset"] = strconv.Itoa(searchDto.Size * utils.GetPageNumber(&searchDto))
-	variables["$dateFrom"] = utils.ConvSecToDateString(searchDto.DateFrom)
 	variables["$dateTo"] = utils.GetCurrentTimeString()
+	if searchDto.DateFrom != nil {
+		variables["$dateFrom"] = searchDto.DateFrom.Format("2006-01-02T15:04:05Z")
+	} else {
+		variables["$dateFrom"] = defaultDateFrom
+
+	}
 
 	if len(searchDto.AccountIds) == 0 {
 		searchDto.AccountIds = append(searchDto.AccountIds, currentUserId)
@@ -58,12 +65,14 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 		}
 	}
 
-	if len(searchDto.Text) == 0 {
+	if len(searchDto.Text) == 0 && len(searchDto.Author) == 0 && len(searchDto.Tags) == 0 {
 		ids := strings.Join(searchDto.AccountIds, ",")
 		vars, err = txn.QueryWithVars(ctx, fmt.Sprintf(getAllPosts, ids), variables)
+	} else if len(searchDto.Author) > 0 || len(searchDto.Tags) > 0 {
+		variables["$author"] = fmt.Sprintf(regexAuthor, searchDto.Author)
+		vars, err = txn.QueryWithVars(ctx, getAllPostsByAttribute, variables)
 	} else {
 		variables["$text"] = searchDto.Text
-		variables["$author"] = fmt.Sprintf(regexAuthor, searchDto.Author)
 		vars, err = txn.QueryWithVars(ctx, getAllPostsByText, variables)
 	}
 
@@ -250,19 +259,13 @@ func (r PostRepository) UpdatePostQueue() {
 
 var updateStatusPost = `uid(A) <status> "POSTED" .`
 
-var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $author: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
+var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
 {
   var(func: anyoftext(postText, $text)) @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo))  {
     A as uid
   	}
 
-  var(func: type(Account)) @filter(eq(isDeleted, false) and regexp(firstName, $author) or regexp(lastName, $author)){
-    posts @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo)) {
- 		B as uid
-    	}
-	}
-
-    content(func: uid(A,B), first: $first, offset: $offset, orderdesc: time) @normalize  {
+    content(func: uid(A), first: $first, offset: $offset, orderdesc: time) {
 	id:uid
 	postText: postText
 	authorId: authorId
@@ -291,6 +294,46 @@ var getAllPostsByText = `query Posts($currentUserId: string, $text: string, $aut
 		totalElement:count(uid)
   }
 }`
+
+var getAllPostsByAttribute = `query Posts($currentUserId: string, $author: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
+{
+
+  var(func: type(Account)) @filter(eq(isDeleted, false) and regexp(firstName, $author) or regexp(lastName, $author)){
+    posts @filter(eq(isDeleted, false) and between(time, $dateFrom, $dateTo)) {
+ 		A as uid
+    	}
+	}
+
+    content(func: uid(A), first: $first, offset: $offset, orderdesc: time) {
+	id:uid
+	postText: postText
+	authorId: authorId
+	title: title
+	time: time 
+	timeChanged: timeChanged
+	type: type
+	isDeleted: isDeleted
+	isBlocked: isBlocked
+	imagePath: imagePath
+	myLike: count(likes @filter(eq(authorId,$currentUserId)))
+    rowMyReaction: likes @filter(eq(authorId,$currentUserId)){
+		myReaction:reactionType
+    }
+    rowReactions: likes @groupby(reactionType){
+        count(uid)
+    }
+	likeAmount: count(likes)
+	commentsCount: count(comments @filter(eq(isDeleted, false)))
+	tags: tags {
+        uid
+		name
+	}
+    }
+    count(func: uid(A)){
+		totalElement:count(uid)
+  }
+}
+`
 
 var getAllPosts = `query Posts($currentUserId: string, $dateFrom: string, $dateTo: string, $first: int, $offset: int)
 {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -23,7 +22,7 @@ func NextDay(day Weekday) Weekday {
 
 func main() {
 
-	i := int64(1646915447)
+	//i := int64(1646915447)
 
 	//m := map[string]string{"Четвертый": " пост"}
 	//for s, s2 := range m {
@@ -37,5 +36,10 @@ func main() {
 	//posts := domain.Posts{TotalElement: 8}
 	//i := posts.TotalPages / 3
 
-	fmt.Println(time.Unix(i, 0).Format("2006-01-02T03:04:05.999999999Z"))
+	//fmt.Println(time.Unix(i, 0).Format("2006-01-02T03:04:05.999999999Z"))
+	parse, err := time.Parse("2006-01-02T15:04:05.999999999Z", "1970-08-01T16:14:54.240Z")
+	if err != nil {
+		return
+	}
+	println(parse.String())
 }
