@@ -64,3 +64,9 @@ func (s *FriendService) Block(c *gin.Context) {
 	s.friendRepository.Block(utils.GetCurrentUserId(c), friendId)
 	c.Status(http.StatusOK)
 }
+
+func (s *FriendService) UnBlock(c *gin.Context) {
+	friendId := c.Param("id")
+	s.friendRepository.UnBlock(utils.GetCurrentUserId(c), friendId)
+	c.Status(http.StatusOK)
+}

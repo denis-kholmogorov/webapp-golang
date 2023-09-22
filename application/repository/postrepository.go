@@ -88,15 +88,18 @@ func (r PostRepository) GetAll(searchDto dto.PostSearchDto, currentUserId string
 		log.Printf("PostRepository:FindAll() Error Unmarshal %s", err)
 		return nil, fmt.Errorf("PostRepository:FindAll() Error Unmarshal %s", err)
 	}
-	updateLikes(response.Content)
+	updateLikesAndTag(response.Content)
 	response.SetPage(searchDto.Size, searchDto.Page)
 	return &response, nil
 
 }
 
-func updateLikes(posts []domain.Post) {
+func updateLikesAndTag(posts []domain.Post) {
 
 	for i, _ := range posts {
+		if posts[i].Tags == nil {
+			posts[i].Tags = []domain.Tag{}
+		}
 		if len(posts[i].RowReactions) > 0 {
 			posts[i].Reactions = posts[i].RowReactions[0].Reactions
 			posts[i].RowReactions = nil

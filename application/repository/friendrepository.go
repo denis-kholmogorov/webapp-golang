@@ -193,7 +193,7 @@ func (r FriendRepository) GetMyFriends(currentUserId string) ([]string, error) {
 	return ids, nil
 }
 
-func (r FriendRepository) Recommendations(currentUserId string) []domain.Account {
+func (r FriendRepository) Recommendations(currentUserId string) []dto.FriendDto {
 	ctx := context.Background()
 	txn := r.conn.NewReadOnlyTxn()
 	var vars *api.Response
@@ -207,7 +207,7 @@ func (r FriendRepository) Recommendations(currentUserId string) []domain.Account
 		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Recommendations() Error query getRecommendations %s", err)})
 	}
 
-	response := dto.PageResponse[domain.Account]{}
+	response := dto.PageResponse[dto.FriendDto]{}
 
 	err = json.Unmarshal(vars.Json, &response)
 
@@ -215,6 +215,57 @@ func (r FriendRepository) Recommendations(currentUserId string) []domain.Account
 		panic(errorhandler.MarshalError{Message: fmt.Sprintf("FriendRepository:Recommendations() Error marshal getRecommendations %s", err)})
 	}
 	return response.Content
+}
+
+func (r FriendRepository) UnBlock(currentUserId string, friendId string) {
+	ctx := context.Background()
+	txn := r.conn.NewTxn()
+	variables := make(map[string]string)
+	variables["$currentUserId"] = currentUserId
+	variables["$friendId"] = friendId
+	vars, err := txn.QueryWithVars(ctx, getFriendshipStatus, variables)
+
+	if err != nil {
+		txn.Discard(ctx)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error query getFriendshipStatus %s", err)})
+	}
+
+	response := domain.Friendships{}
+
+	err = json.Unmarshal(vars.Json, &response)
+	if err != nil {
+		txn.Discard(ctx)
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error getFriendshipStatus %s", err)})
+	}
+
+	var mu *api.Mutation
+	if response.Friendships[0].Status == domain.BLOCKED {
+		mu = &api.Mutation{
+			SetNquads: []byte(fmt.Sprintf(blockFriendship, domain.BLOCKED, domain.NONE, response.Friendships[0].PreviousStatus, response.Friendships[1].PreviousStatus)),
+		}
+	} else {
+		if response.Friendships[0].PreviousStatus == "" {
+			txn.Commit(ctx)
+			r.Delete(currentUserId, friendId)
+		}
+		mu = &api.Mutation{
+			SetNquads: []byte(fmt.Sprintf(blockFriendship, response.Friendships[0].PreviousStatus, response.Friendships[1].PreviousStatus, "", "")),
+		}
+	}
+
+	req := &api.Request{
+		Query:     getFriendship,
+		Mutations: []*api.Mutation{mu},
+		Vars:      variables,
+		CommitNow: true,
+	}
+
+	// UpdateSettings email only if matching uid found.
+	_, err = r.conn.NewTxn().Do(ctx, req)
+	if err != nil {
+		panic(errorhandler.DbError{Message: fmt.Sprintf("FriendRepository:Block() Error mutate getFriendship %s", blockFriendship)})
+	}
+
 }
 
 func (r FriendRepository) Block(currentUserId string, friendId string) {
@@ -333,7 +384,7 @@ var getAllFriends = `query Posts($currentUserId: string, $statusCode: string, $f
     }
   }
   content(func: uid(A), orderdesc: time, first: $first, offset: $offset)  {
-    idFriend:uid
+    friendId:uid
   }
   count(func: uid(A)){
 		totalElement:count(uid)
@@ -427,25 +478,15 @@ var getRecommendations = `query count($currentUserId: string, $statusFriend: str
 		}
   	  }
     }
-	var(func: uid($currentUserId)) @normalize {
+	content(func: uid(A)) @normalize {
       friends @filter(eq(status, $statusFriend)){
-        friend{
-          friends @filter(eq(status, $statusFriend)){
-      		friend@filter(not uid($currentUserId) and not uid(A)){
-              B as uid
-      		}
+        statusCode:status
+        friend @filter(not uid($currentUserId) and not uid(A)){
+          friendId:uid
+          friends @filter(uid_in(friend,uid(A))){
+      		rating:count(friend)
           }
 		}
   	  }
-    }
-    content(func: uid(B)){
-      id:uid
-	  firstName:firstName
-	  lastName:lastName
-	  city:city
-	  country:country
-	  birthDate:birthDate
-	  isOnline:isOnline
-	  photo: photo
     }
 }`
