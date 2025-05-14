@@ -13,4 +13,6 @@ docker push kholmden/web_go:latest
 # Run web_god
 docker run -d  --network web_go --name web_go  -v ~/env/.env:/.env -p 8088:8080 kholmden/web_go
 
+# good luck
+
 
