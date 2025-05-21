@@ -1,2 +1,2 @@
 # webapp-golang
-Web project on Golang test
+Web project on Golang
